@@ -30,13 +30,15 @@ public class Database {
     }
 
     // JDBC + DAO: devuelve una conexion lista para usar desde la capa DAO.
-    public static Connection getConnection() {
+    public static Connection getConnection() throws SQLException {
         try {
             return DriverManager.getConnection(URL, USER, PASSWORD);
         } catch (SQLException ex) {
-            // Si falla la conexion, informa el motivo y devuelve null.
-            System.out.println("No se pudo conectar a la base de datos: " + ex.getMessage());
-            return null;
+            // JDBC: propaga un mensaje claro para evitar errores visuales vacios en la interfaz.
+            throw new SQLException(
+                    "No se pudo conectar a la base de datos. Revise que MySQL este iniciado y que la configuracion sea correcta.",
+                    ex
+            );
         }
     }
 }

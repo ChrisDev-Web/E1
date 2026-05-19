@@ -52,14 +52,14 @@ public class UserController {
             User user = userRepository.login(userName.trim());
 
             if (user == null) {
-                throw new Exception("Usuario o contrasena incorrectos.");
+                throw new Exception("No se pudo iniciar sesion. Verifique su usuario y contrasena.");
             }
 
             // PBKDF2: compara la contrasena plana con el hash almacenado.
             boolean validPassword = PasswordUtil.verifyPassword(password, user.getPassword());
 
             if (!validPassword) {
-                throw new Exception("Usuario o contrasena incorrectos.");
+                throw new Exception("No se pudo iniciar sesion. Verifique su usuario y contrasena.");
             }
 
             return user;
@@ -82,37 +82,37 @@ public class UserController {
         validateUserName(userName);
 
         if (password == null || password.length == 0) {
-            throw new Exception("Ingrese su contrasena.");
+            throw new Exception("Escriba su contrasena para continuar.");
         }
     }
 
     // Validacion: controla reglas basicas del username.
     private void validateUserName(String userName) throws Exception {
         if (userName == null || userName.trim().isEmpty()) {
-            throw new Exception("Ingrese un nombre de usuario.");
+            throw new Exception("Escriba su nombre de usuario para continuar.");
         }
 
         if (userName.trim().length() < 4) {
-            throw new Exception("El nombre de usuario debe tener minimo 4 caracteres.");
+            throw new Exception("El nombre de usuario debe tener al menos 4 caracteres.");
         }
     }
 
     // Validacion: comprueba longitud y confirmacion de contrasena.
     private void validatePasswordPair(char[] password, char[] confirmPassword) throws Exception {
         if (password == null || password.length == 0) {
-            throw new Exception("Ingrese una contrasena.");
+            throw new Exception("Escriba una contrasena.");
         }
 
         if (password.length < 6) {
-            throw new Exception("La contrasena debe tener minimo 6 caracteres.");
+            throw new Exception("La contrasena debe tener al menos 6 caracteres.");
         }
 
         if (confirmPassword == null || confirmPassword.length == 0) {
-            throw new Exception("Confirme la contrasena.");
+            throw new Exception("Confirme la contrasena para continuar.");
         }
 
         if (!Arrays.equals(password, confirmPassword)) {
-            throw new Exception("Las contrasenas no coinciden.");
+            throw new Exception("Las contrasenas no coinciden. Revise ambos campos.");
         }
     }
 
@@ -125,8 +125,25 @@ public class UserController {
 
     // JDBC: devuelve un mensaje amigable a partir del error SQL original.
     private String getSqlMessage(SQLException e) {
-        if (e.getMessage() != null && !e.getMessage().isBlank()) {
-            return e.getMessage();
+        String detail = e.getMessage();
+
+        if (detail != null) {
+            String lowerDetail = detail.toLowerCase();
+
+            if (lowerDetail.contains("duplicate") || lowerDetail.contains("duplicada")) {
+                return "El usuario ya existe. Elija otro nombre de usuario.";
+            }
+
+            if (lowerDetail.contains("connect")
+                    || lowerDetail.contains("communications link failure")
+                    || lowerDetail.contains("connection refused")
+                    || lowerDetail.contains("access denied")) {
+                return "No se pudo conectar a la base de datos. Revise que MySQL este iniciado y que la configuracion sea correcta.";
+            }
+
+            if (!detail.isBlank()) {
+                return detail;
+            }
         }
 
         return "Ocurrio un error al comunicarse con la base de datos.";
