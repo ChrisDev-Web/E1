@@ -16,7 +16,6 @@ import javax.swing.BorderFactory;
 import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
@@ -318,23 +317,21 @@ public class RegisterJFrame extends BaseFrame {
             // MVC: envia los datos al controlador para validar y registrar.
             userController.registerUser(userName, password, confirmPassword);
 
-            // Swing: informa cuando el registro fue exitoso.
-            JOptionPane.showMessageDialog(
+            // Swing: informa con mejor visibilidad cuando el registro fue exitoso.
+            AppMessageDialog.showInfo(
                     this,
-                    "Usuario registrado correctamente.",
                     "Registro exitoso",
-                    JOptionPane.INFORMATION_MESSAGE
+                    "El usuario fue registrado correctamente. Ya puede iniciar sesion."
             );
 
             // Herencia + Swing: vuelve al login despues del registro.
             openFrame(new LoginJFrame());
         } catch (Exception e) {
-            // Swing: muestra un mensaje amigable cuando ocurre un error.
-            JOptionPane.showMessageDialog(
+            // Swing: muestra un mensaje mucho mas claro y visible al usuario.
+            AppMessageDialog.showError(
                     this,
-                    e.getMessage(),
-                    "Error de registro",
-                    JOptionPane.ERROR_MESSAGE
+                    "No se pudo completar el registro",
+                    e.getMessage()
             );
         } finally {
             btnRegister.setEnabled(true);

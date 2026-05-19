@@ -17,7 +17,6 @@ import javax.swing.BorderFactory;
 import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
@@ -271,15 +270,15 @@ public class LoginJFrame extends BaseFrame {
         try {
             // MVC: recibe el usuario autenticado desde la capa controlador.
             User user = userController.loginUser(userName, password);
+            UserSession.getInstance().startSession(user);
             // Herencia + Swing: navega a la siguiente vista al iniciar sesion.
             openFrame(new MenuJFrame(user));
         } catch (Exception e) {
-            // Swing: muestra un mensaje amigable cuando ocurre un error.
-            JOptionPane.showMessageDialog(
+            // Swing: muestra un mensaje mucho mas claro y visible al usuario.
+            AppMessageDialog.showError(
                     this,
-                    e.getMessage(),
-                    "Error de inicio de sesion",
-                    JOptionPane.ERROR_MESSAGE
+                    "No se pudo iniciar sesion",
+                    e.getMessage()
             );
         } finally {
             btnLogin.setEnabled(true);
