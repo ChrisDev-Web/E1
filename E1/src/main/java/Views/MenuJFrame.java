@@ -14,6 +14,7 @@ import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
 import javax.swing.Timer;
 
@@ -127,6 +128,7 @@ public class MenuJFrame extends BaseFrame {
 
         JPanel navigationPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         navigationPanel.setOpaque(false);
+        navigationPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 22, 0));
 
         for (IViewPanel view : navigator.getViews()) {
             JButton button = createNavigationButton(view);
@@ -134,8 +136,24 @@ public class MenuJFrame extends BaseFrame {
             navigationPanel.add(button);
         }
 
+        JScrollPane navigationScrollPane = new JScrollPane(
+                navigationPanel,
+                JScrollPane.VERTICAL_SCROLLBAR_NEVER,
+                JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED
+        );
+        navigationScrollPane.setBorder(BorderFactory.createEmptyBorder());
+        navigationScrollPane.setOpaque(false);
+        navigationScrollPane.getViewport().setOpaque(false);
+        navigationScrollPane.setBackground(headerColor);
+        navigationScrollPane.getHorizontalScrollBar().setUnitIncrement(24);
+
+        JPanel navigationWrapper = new JPanel(new BorderLayout());
+        navigationWrapper.setOpaque(false);
+        navigationWrapper.setBorder(BorderFactory.createEmptyBorder(0, 0, 16, 0));
+        navigationWrapper.add(navigationScrollPane, BorderLayout.CENTER);
+
         headerPanel.add(topBar, BorderLayout.NORTH);
-        headerPanel.add(navigationPanel, BorderLayout.CENTER);
+        headerPanel.add(navigationWrapper, BorderLayout.CENTER);
 
         return headerPanel;
     }
