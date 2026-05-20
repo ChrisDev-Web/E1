@@ -14,7 +14,7 @@ public class Database {
     // JDBC: usuario con el que se abre la conexion.
     private static final String USER = "root";
     // JDBC: contrasena del usuario de base de datos.
-    private static final String PASSWORD = "";
+    private static final String PASSWORD = "123456";
 
     static {
         try {
