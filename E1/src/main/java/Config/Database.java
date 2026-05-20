@@ -1,20 +1,21 @@
 package Config;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Properties;
 
 // JDBC: centraliza la configuracion y apertura de conexiones a MySQL.
 public class Database {
 
-    // JDBC: driver del proveedor MySQL.
-    private static final String DRIVER = "com.mysql.cj.jdbc.Driver";
-    // JDBC: URL de conexion a la base de datos del proyecto.
-    private static final String URL = "jdbc:mysql://localhost:3306/Logistics?useSSL=false&serverTimezone=America/Lima";
-    // JDBC: usuario con el que se abre la conexion.
-    private static final String USER = "root";
-    // JDBC: contrasena del usuario de base de datos.
-    private static final String PASSWORD = "123456";
+    private static final Properties PROPERTIES = loadProperties();
+
+    private static final String DRIVER = resolveConfig("DB_DRIVER", "db.driver", "com.mysql.cj.jdbc.Driver");
+    private static final String URL = resolveConfig("DB_URL", "db.url", "jdbc:mysql://localhost:3306/Logistics1?useSSL=false&serverTimezone=America/Lima");
+    private static final String USER = resolveConfig("DB_USER", "db.user", "root");
+    private static final String PASSWORD = resolveConfig("DB_PASSWORD", "db.password", "123456");
 
     static {
         try {
@@ -40,5 +41,35 @@ public class Database {
                     ex
             );
         }
+    }
+
+    private static Properties loadProperties() {
+        Properties properties = new Properties();
+
+        try (InputStream inputStream = Database.class.getClassLoader().getResourceAsStream("database.properties")) {
+            if (inputStream != null) {
+                properties.load(inputStream);
+            }
+        } catch (IOException ex) {
+            System.out.println("No se pudo leer database.properties: " + ex.getMessage());
+        }
+
+        return properties;
+    }
+
+    private static String resolveConfig(String envKey, String propertyKey, String defaultValue) {
+        String envValue = System.getenv(envKey);
+
+        if (envValue != null && !envValue.trim().isEmpty()) {
+            return envValue.trim();
+        }
+
+        String propertyValue = PROPERTIES.getProperty(propertyKey);
+
+        if (propertyValue != null && !propertyValue.trim().isEmpty()) {
+            return propertyValue.trim();
+        }
+
+        return defaultValue;
     }
 }

@@ -1,6 +1,7 @@
 package Views;
 
 import Controllers.ShipmentTrackingController;
+import Models.ReferenceItem;
 import Models.ShipmentTracking;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -20,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.swing.AbstractCellEditor;
 import javax.swing.BorderFactory;
+import javax.swing.DefaultComboBoxModel;
 import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -445,8 +447,8 @@ public class SeguimientoEnviosJPanel extends JPanel implements IViewPanel {
         private final ShipmentTracking editingTracking;
         private boolean saved;
 
-        private JTextField txtIdShipment;
-        private JTextField txtIdUser;
+        private JComboBox<ReferenceItem> cmbShipment;
+        private JComboBox<ReferenceItem> cmbUser;
         private JTextField txtLocation;
         private JComboBox<String> cmbStatus;
         private JTextArea txtComments;
@@ -469,9 +471,10 @@ public class SeguimientoEnviosJPanel extends JPanel implements IViewPanel {
 
             JPanel headerPanel = createDialogHeader();
 
-            txtIdShipment = createInput();
-            txtIdUser = createInput();
+            cmbShipment = createReferenceCombo();
+            cmbUser = createReferenceCombo();
             txtLocation = createInput();
+            loadInitialReferences();
             cmbStatus = new JComboBox<>(new String[]{
                 "PENDING", "PREPARING", "SHIPPED", "IN_TRANSIT", "DELIVERED", "CANCELLED"
             });
@@ -502,8 +505,8 @@ public class SeguimientoEnviosJPanel extends JPanel implements IViewPanel {
             gbc.fill = GridBagConstraints.HORIZONTAL;
             gbc.anchor = GridBagConstraints.WEST;
 
-            addField(formPanel, gbc, 0, "ID envio", txtIdShipment);
-            addField(formPanel, gbc, 1, "ID usuario", txtIdUser);
+            addField(formPanel, gbc, 0, "Envio", cmbShipment);
+            addField(formPanel, gbc, 1, "Usuario", cmbUser);
             addField(formPanel, gbc, 2, "Ubicacion", txtLocation);
             addField(formPanel, gbc, 3, "Estado", cmbStatus);
             addField(formPanel, gbc, 4, "Comentarios", new JScrollPane(txtComments));
@@ -566,6 +569,13 @@ public class SeguimientoEnviosJPanel extends JPanel implements IViewPanel {
             return textField;
         }
 
+        private JComboBox<ReferenceItem> createReferenceCombo() {
+            JComboBox<ReferenceItem> comboBox = new JComboBox<>();
+            comboBox.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            comboBox.setPreferredSize(new Dimension(220, 34));
+            return comboBox;
+        }
+
         private void addField(JPanel panel, GridBagConstraints gbc, int row, String label, Component field) {
             gbc.gridx = 0;
             gbc.gridy = row;
@@ -586,8 +596,8 @@ public class SeguimientoEnviosJPanel extends JPanel implements IViewPanel {
                 return;
             }
 
-            txtIdShipment.setText(String.valueOf(editingTracking.getIdShipment()));
-            txtIdUser.setText(editingTracking.getIdUser() == null ? "" : String.valueOf(editingTracking.getIdUser()));
+            selectReferenceItem(cmbShipment, editingTracking.getIdShipment());
+            selectReferenceItem(cmbUser, editingTracking.getIdUser());
             txtLocation.setText(editingTracking.getLocation());
             cmbStatus.setSelectedItem(editingTracking.getStatus());
             txtComments.setText(editingTracking.getComments());
@@ -597,8 +607,8 @@ public class SeguimientoEnviosJPanel extends JPanel implements IViewPanel {
             try {
                 ShipmentTracking tracking = editingTracking == null ? new ShipmentTracking() : editingTracking;
 
-                tracking.setIdShipment(parseInt(txtIdShipment.getText(), "Ingrese un ID de envio valido."));
-                tracking.setIdUser(parseNullableInt(txtIdUser.getText(), "Ingrese un ID de usuario valido."));
+                tracking.setIdShipment(getSelectedReferenceId(cmbShipment, "Seleccione un envio valido."));
+                tracking.setIdUser(getSelectedNullableReferenceId(cmbUser));
                 tracking.setLocation(txtLocation.getText().trim());
                 tracking.setStatus(cmbStatus.getSelectedItem().toString());
                 tracking.setComments(txtComments.getText().trim());
@@ -617,24 +627,57 @@ public class SeguimientoEnviosJPanel extends JPanel implements IViewPanel {
             }
         }
 
-        private int parseInt(String value, String message) throws Exception {
+        private void loadInitialReferences() {
             try {
-                return Integer.parseInt(value.trim());
-            } catch (NumberFormatException ex) {
-                throw new Exception(message);
+                loadReferenceModel(cmbShipment, trackingController.listShipmentOptions(), false);
+                loadReferenceModel(cmbUser, trackingController.listUserOptions(), true);
+            } catch (Exception e) {
+                AppMessageDialog.showError(this, "Seguimiento de Envios", e.getMessage());
             }
         }
 
-        private Integer parseNullableInt(String value, String message) throws Exception {
-            if (value == null || value.trim().isEmpty()) {
-                return null;
+        private void loadReferenceModel(JComboBox<ReferenceItem> comboBox, List<ReferenceItem> items, boolean includeEmpty) {
+            DefaultComboBoxModel<ReferenceItem> model = new DefaultComboBoxModel<>();
+
+            if (includeEmpty) {
+                model.addElement(new ReferenceItem(0, "Sin usuario"));
             }
 
-            try {
-                return Integer.parseInt(value.trim());
-            } catch (NumberFormatException ex) {
+            if (items != null) {
+                for (ReferenceItem item : items) {
+                    model.addElement(item);
+                }
+            }
+
+            comboBox.setModel(model);
+        }
+
+        private void selectReferenceItem(JComboBox<ReferenceItem> comboBox, Integer id) {
+            int resolvedId = id == null ? 0 : id;
+
+            for (int index = 0; index < comboBox.getItemCount(); index++) {
+                ReferenceItem item = comboBox.getItemAt(index);
+
+                if (item.getId() == resolvedId) {
+                    comboBox.setSelectedIndex(index);
+                    return;
+                }
+            }
+        }
+
+        private int getSelectedReferenceId(JComboBox<ReferenceItem> comboBox, String message) throws Exception {
+            ReferenceItem item = (ReferenceItem) comboBox.getSelectedItem();
+
+            if (item == null || item.getId() <= 0) {
                 throw new Exception(message);
             }
+
+            return item.getId();
+        }
+
+        private Integer getSelectedNullableReferenceId(JComboBox<ReferenceItem> comboBox) {
+            ReferenceItem item = (ReferenceItem) comboBox.getSelectedItem();
+            return item == null || item.getId() <= 0 ? null : item.getId();
         }
     }
 }

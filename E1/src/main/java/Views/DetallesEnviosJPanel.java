@@ -1,6 +1,7 @@
 package Views;
 
 import Controllers.ShipmentDetailController;
+import Models.ReferenceItem;
 import Models.ShipmentDetail;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -19,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.swing.AbstractCellEditor;
 import javax.swing.BorderFactory;
+import javax.swing.DefaultComboBoxModel;
 import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -423,9 +425,9 @@ public class DetallesEnviosJPanel extends JPanel implements IViewPanel {
         private final ShipmentDetail editingDetail;
         private boolean saved;
 
-        private JTextField txtIdShipment;
-        private JTextField txtIdBox;
-        private JTextField txtIdProduct;
+        private JComboBox<ReferenceItem> cmbShipment;
+        private JComboBox<ReferenceItem> cmbBox;
+        private JComboBox<ReferenceItem> cmbProduct;
         private JTextField txtQuantity;
         private JTextField txtUnitWeightKg;
 
@@ -447,11 +449,15 @@ public class DetallesEnviosJPanel extends JPanel implements IViewPanel {
 
             JPanel headerPanel = createDialogHeader();
 
-            txtIdShipment = createInput();
-            txtIdBox = createInput();
-            txtIdProduct = createInput();
+            cmbShipment = createReferenceCombo();
+            cmbBox = createReferenceCombo();
+            cmbProduct = createReferenceCombo();
             txtQuantity = createInput();
             txtUnitWeightKg = createInput();
+
+            loadInitialReferences();
+            loadBoxesForSelectedShipment();
+            cmbShipment.addActionListener(e -> loadBoxesForSelectedShipment());
 
             JPanel bodyPanel = new JPanel(new BorderLayout(0, 16));
             bodyPanel.setOpaque(false);
@@ -472,9 +478,9 @@ public class DetallesEnviosJPanel extends JPanel implements IViewPanel {
             gbc.fill = GridBagConstraints.HORIZONTAL;
             gbc.anchor = GridBagConstraints.WEST;
 
-            addField(formPanel, gbc, 0, "ID envio", txtIdShipment);
-            addField(formPanel, gbc, 1, "ID caja", txtIdBox);
-            addField(formPanel, gbc, 2, "ID producto", txtIdProduct);
+            addField(formPanel, gbc, 0, "Envio", cmbShipment);
+            addField(formPanel, gbc, 1, "Caja", cmbBox);
+            addField(formPanel, gbc, 2, "Producto", cmbProduct);
             addField(formPanel, gbc, 3, "Cantidad", txtQuantity);
             addField(formPanel, gbc, 4, "Peso unitario kg", txtUnitWeightKg);
 
@@ -536,6 +542,22 @@ public class DetallesEnviosJPanel extends JPanel implements IViewPanel {
             return textField;
         }
 
+        private JComboBox<ReferenceItem> createReferenceCombo() {
+            JComboBox<ReferenceItem> comboBox = new JComboBox<>();
+            comboBox.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            comboBox.setPreferredSize(new Dimension(220, 34));
+            return comboBox;
+        }
+
+        private void loadInitialReferences() {
+            try {
+                loadReferenceModel(cmbShipment, detailController.listShipmentOptions());
+                loadReferenceModel(cmbProduct, detailController.listProductOptions());
+            } catch (Exception e) {
+                AppMessageDialog.showError(this, "Detalles de Envios", e.getMessage());
+            }
+        }
+
         private void addField(JPanel panel, GridBagConstraints gbc, int row, String label, Component field) {
             gbc.gridx = 0;
             gbc.gridy = row;
@@ -555,9 +577,10 @@ public class DetallesEnviosJPanel extends JPanel implements IViewPanel {
                 return;
             }
 
-            txtIdShipment.setText(String.valueOf(editingDetail.getIdShipment()));
-            txtIdBox.setText(String.valueOf(editingDetail.getIdBox()));
-            txtIdProduct.setText(String.valueOf(editingDetail.getIdProduct()));
+            selectReferenceItem(cmbShipment, editingDetail.getIdShipment());
+            loadBoxesForSelectedShipment();
+            selectReferenceItem(cmbBox, editingDetail.getIdBox());
+            selectReferenceItem(cmbProduct, editingDetail.getIdProduct());
             txtQuantity.setText(String.valueOf(editingDetail.getQuantity()));
             txtUnitWeightKg.setText(String.valueOf(editingDetail.getUnitWeightKg()));
         }
@@ -566,9 +589,9 @@ public class DetallesEnviosJPanel extends JPanel implements IViewPanel {
             try {
                 ShipmentDetail detail = editingDetail == null ? new ShipmentDetail() : editingDetail;
 
-                detail.setIdShipment(parseInt(txtIdShipment.getText(), "Ingrese un ID de envio valido."));
-                detail.setIdBox(parseInt(txtIdBox.getText(), "Ingrese un ID de caja valido."));
-                detail.setIdProduct(parseInt(txtIdProduct.getText(), "Ingrese un ID de producto valido."));
+                detail.setIdShipment(getSelectedReferenceId(cmbShipment, "Seleccione un envio valido."));
+                detail.setIdBox(getSelectedReferenceId(cmbBox, "Seleccione una caja valida."));
+                detail.setIdProduct(getSelectedReferenceId(cmbProduct, "Seleccione un producto valido."));
                 detail.setQuantity(parseInt(txtQuantity.getText(), "Ingrese una cantidad valida."));
                 detail.setUnitWeightKg(parseDecimal(txtUnitWeightKg.getText(), "Ingrese un peso unitario valido."));
 
@@ -600,6 +623,53 @@ public class DetallesEnviosJPanel extends JPanel implements IViewPanel {
             } catch (NumberFormatException ex) {
                 throw new Exception(message);
             }
+        }
+
+        private void loadReferenceModel(JComboBox<ReferenceItem> comboBox, List<ReferenceItem> items) {
+            DefaultComboBoxModel<ReferenceItem> model = new DefaultComboBoxModel<>();
+
+            if (items != null) {
+                for (ReferenceItem item : items) {
+                    model.addElement(item);
+                }
+            }
+
+            comboBox.setModel(model);
+        }
+
+        private void loadBoxesForSelectedShipment() {
+            ReferenceItem shipment = (ReferenceItem) cmbShipment.getSelectedItem();
+
+            try {
+                if (shipment == null || shipment.getId() <= 0) {
+                    loadReferenceModel(cmbBox, detailController.listBoxOptions());
+                } else {
+                    loadReferenceModel(cmbBox, detailController.listBoxOptionsByShipment(shipment.getId()));
+                }
+            } catch (Exception e) {
+                AppMessageDialog.showError(this, "Detalles de Envios", e.getMessage());
+            }
+        }
+
+        private void selectReferenceItem(JComboBox<ReferenceItem> comboBox, int id) {
+            for (int index = 0; index < comboBox.getItemCount(); index++) {
+                ReferenceItem item = comboBox.getItemAt(index);
+
+                if (item.getId() == id) {
+                    comboBox.setSelectedIndex(index);
+                    return;
+                }
+            }
+        }
+
+        private int getSelectedReferenceId(JComboBox<ReferenceItem> comboBox, String message) throws Exception {
+            ReferenceItem item = (ReferenceItem) comboBox.getSelectedItem();
+
+            if (item == null || item.getId() <= 0) {
+                throw new Exception(message);
+            }
+
+            return item.getId();
         }
     }
 }

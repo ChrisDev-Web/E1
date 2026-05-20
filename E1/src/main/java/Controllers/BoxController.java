@@ -2,20 +2,30 @@ package Controllers;
 
 import DAO.BoxDAO;
 import Models.Box;
+import Models.ReferenceItem;
 import Repositories.IBoxRepository;
+import Repositories.IReferenceDataRepository;
+import Repositories.ReferenceDataRepository;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.List;
+
 public class BoxController {
-    
+
     private final IBoxRepository boxRepository;
+    private final IReferenceDataRepository referenceDataRepository;
 
     public BoxController() {
-        this.boxRepository = new BoxDAO();
+        this(new BoxDAO(), new ReferenceDataRepository());
     }
 
     public BoxController(IBoxRepository boxRepository) {
+        this(boxRepository, new ReferenceDataRepository());
+    }
+
+    public BoxController(IBoxRepository boxRepository, IReferenceDataRepository referenceDataRepository) {
         this.boxRepository = boxRepository;
+        this.referenceDataRepository = referenceDataRepository;
     }
 
     public void createBox(Box box) throws Exception {
@@ -86,6 +96,14 @@ public class BoxController {
         }
     }
 
+    public List<ReferenceItem> listShipmentOptions() throws Exception {
+        try {
+            return referenceDataRepository.listShipments();
+        } catch (SQLException e) {
+            throw new Exception(getSqlMessage(e));
+        }
+    }
+
     private void validateBox(Box box) throws Exception {
         if (box == null) {
             throw new Exception("Ingrese los datos de la caja.");
@@ -141,7 +159,7 @@ public class BoxController {
             }
 
             if (lowerDetail.contains("foreign key")) {
-                return "El envio seleccionado no existe o no es valido.";
+                return "El registro seleccionado no existe o no es valido.";
             }
 
             if (!detail.isBlank()) {

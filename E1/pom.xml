@@ -8,7 +8,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>11</maven.compiler.release>
-        <exec.mainClass>com.mycompany.e1.E1</exec.mainClass>
+        <exec.mainClass>App.Main</exec.mainClass>
     </properties>
     <dependencies>
         <!-- Conector MySQL para interactuar con bases de datos MySQL -->

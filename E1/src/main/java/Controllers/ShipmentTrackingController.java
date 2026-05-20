@@ -1,17 +1,26 @@
 package Controllers;
 
 import DAO.ShipmentTrackingDAO;
+import Models.ReferenceItem;
 import Models.ShipmentTracking;
+import Repositories.IReferenceDataRepository;
 import Repositories.IShipmentTrackingRepository;
+import Repositories.ReferenceDataRepository;
 import java.sql.SQLException;
 import java.util.List;
 
 public class ShipmentTrackingController {
 
     private final IShipmentTrackingRepository trackingRepository;
+    private final IReferenceDataRepository referenceDataRepository;
 
     public ShipmentTrackingController() {
-        this.trackingRepository = new ShipmentTrackingDAO();
+        this(new ShipmentTrackingDAO(), new ReferenceDataRepository());
+    }
+
+    public ShipmentTrackingController(IShipmentTrackingRepository trackingRepository, IReferenceDataRepository referenceDataRepository) {
+        this.trackingRepository = trackingRepository;
+        this.referenceDataRepository = referenceDataRepository;
     }
 
     public void createTracking(ShipmentTracking tracking) throws Exception {
@@ -65,6 +74,22 @@ public class ShipmentTrackingController {
 
         try {
             return trackingRepository.listByShipment(idShipment);
+        } catch (SQLException e) {
+            throw new Exception(getSqlMessage(e));
+        }
+    }
+
+    public List<ReferenceItem> listShipmentOptions() throws Exception {
+        try {
+            return referenceDataRepository.listShipments();
+        } catch (SQLException e) {
+            throw new Exception(getSqlMessage(e));
+        }
+    }
+
+    public List<ReferenceItem> listUserOptions() throws Exception {
+        try {
+            return referenceDataRepository.listUsers();
         } catch (SQLException e) {
             throw new Exception(getSqlMessage(e));
         }

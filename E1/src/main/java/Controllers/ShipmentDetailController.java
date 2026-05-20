@@ -1,8 +1,11 @@
 package Controllers;
 
 import DAO.ShipmentDetailDAO;
+import Models.ReferenceItem;
 import Models.ShipmentDetail;
+import Repositories.IReferenceDataRepository;
 import Repositories.IShipmentDetailRepository;
+import Repositories.ReferenceDataRepository;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.List;
@@ -10,9 +13,15 @@ import java.util.List;
 public class ShipmentDetailController {
 
     private final IShipmentDetailRepository detailRepository;
+    private final IReferenceDataRepository referenceDataRepository;
 
     public ShipmentDetailController() {
-        this.detailRepository = new ShipmentDetailDAO();
+        this(new ShipmentDetailDAO(), new ReferenceDataRepository());
+    }
+
+    public ShipmentDetailController(IShipmentDetailRepository detailRepository, IReferenceDataRepository referenceDataRepository) {
+        this.detailRepository = detailRepository;
+        this.referenceDataRepository = referenceDataRepository;
     }
 
     public void createDetail(ShipmentDetail detail) throws Exception {
@@ -78,6 +87,42 @@ public class ShipmentDetailController {
 
         try {
             return detailRepository.listByBox(idBox);
+        } catch (SQLException e) {
+            throw new Exception(getSqlMessage(e));
+        }
+    }
+
+    public List<ReferenceItem> listShipmentOptions() throws Exception {
+        try {
+            return referenceDataRepository.listShipments();
+        } catch (SQLException e) {
+            throw new Exception(getSqlMessage(e));
+        }
+    }
+
+    public List<ReferenceItem> listBoxOptions() throws Exception {
+        try {
+            return referenceDataRepository.listBoxes();
+        } catch (SQLException e) {
+            throw new Exception(getSqlMessage(e));
+        }
+    }
+
+    public List<ReferenceItem> listBoxOptionsByShipment(int idShipment) throws Exception {
+        if (idShipment <= 0) {
+            throw new Exception("Seleccione un envio valido.");
+        }
+
+        try {
+            return referenceDataRepository.listBoxesByShipment(idShipment);
+        } catch (SQLException e) {
+            throw new Exception(getSqlMessage(e));
+        }
+    }
+
+    public List<ReferenceItem> listProductOptions() throws Exception {
+        try {
+            return referenceDataRepository.listProducts();
         } catch (SQLException e) {
             throw new Exception(getSqlMessage(e));
         }

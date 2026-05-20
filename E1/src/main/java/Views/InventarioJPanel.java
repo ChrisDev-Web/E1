@@ -2,26 +2,44 @@ package Views;
 
 import Controllers.InventarioController;
 import Models.Inventory;
+import Models.ReferenceItem;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.FlowLayout;
+import java.awt.Frame;
+import java.awt.GridLayout;
+import java.util.List;
+import javax.swing.DefaultComboBoxModel;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JDialog;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.JTextField;
+import javax.swing.ListSelectionModel;
+import javax.swing.SwingUtilities;
+import javax.swing.table.DefaultTableModel;
 import jiconfont.icons.font_awesome.FontAwesome;
 
-import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
-import java.awt.*;
-import java.util.List;
-
-// Swing + Herencia: Acoplado al BasePanel con soporte para SP y Transferencias
 public class InventarioJPanel extends BasePanel {
+
     private final InventarioController controller = new InventarioController();
     private JTable table;
     private DefaultTableModel model;
     private JTextField txtSearch;
-    private JButton btnNew, btnEdit, btnTransfer, btnSearch;
+    private JButton btnNew;
+    private JButton btnEdit;
+    private JButton btnTransfer;
+    private JButton btnSearch;
 
     public InventarioJPanel() {
         super(
                 "inventario",
                 "Inventario",
-                "Revise existencias, movimientos de mercancía y control de stock.",
+                "Revise existencias, movimientos de mercancia y control de stock.",
                 ViewIcons.build(FontAwesome.CLIPBOARD, 28)
         );
         initModuloComponents();
@@ -29,7 +47,7 @@ public class InventarioJPanel extends BasePanel {
     }
 
     private void initModuloComponents() {
-        this.setLayout(new BorderLayout(10, 10));
+        setLayout(new BorderLayout(10, 10));
 
         JPanel pnlTop = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 5));
         pnlTop.setBackground(Color.WHITE);
@@ -46,17 +64,20 @@ public class InventarioJPanel extends BasePanel {
         pnlTop.add(btnNew);
         pnlTop.add(btnEdit);
         pnlTop.add(btnTransfer);
-        this.add(pnlTop, BorderLayout.NORTH);
+        add(pnlTop, BorderLayout.NORTH);
 
-        String[] columnas = {"ID Registro", "Almacén", "SKU", "Producto", "Stock Actual", "Reservado", "Mínimo"};
+        String[] columnas = {"ID Registro", "Almacen", "SKU", "Producto", "Stock Actual", "Reservado", "Minimo"};
         model = new DefaultTableModel(columnas, 0) {
-            @Override public boolean isCellEditable(int r, int c) { return false; }
+            @Override
+            public boolean isCellEditable(int r, int c) {
+                return false;
+            }
         };
+
         table = new JTable(model);
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        this.add(new JScrollPane(table), BorderLayout.CENTER);
+        add(new JScrollPane(table), BorderLayout.CENTER);
 
-        // Registro de Listeners de Eventos
         btnSearch.addActionListener(e -> buscar());
         btnNew.addActionListener(e -> openModal(null));
         btnEdit.addActionListener(e -> prepararEdicion());
@@ -65,11 +86,7 @@ public class InventarioJPanel extends BasePanel {
 
     private void cargarDatos() {
         try {
-            model.setRowCount(0);
-            List<Inventory> datos = controller.listarActivos(); 
-            for (Inventory i : datos) {
-                model.addRow(new Object[]{i.getIdInventory(), i.getWarehouseName(), i.getProductSku(), i.getProductName(), i.getStock(), i.getReservedStock(), i.getMinStock()});
-            }
+            fillTable(controller.listarActivos());
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, e.getMessage());
         }
@@ -77,73 +94,100 @@ public class InventarioJPanel extends BasePanel {
 
     private void buscar() {
         try {
-            model.setRowCount(0);
-            List<Inventory> datos = controller.buscarInventario(txtSearch.getText().trim());
-            for (Inventory i : datos) {
-                model.addRow(new Object[]{i.getIdInventory(), i.getWarehouseName(), i.getProductSku(), i.getProductName(), i.getStock(), i.getReservedStock(), i.getMinStock()});
-            }
+            fillTable(controller.buscarInventario(txtSearch.getText()));
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, e.getMessage());
         }
     }
 
+    private void fillTable(List<Inventory> items) {
+        model.setRowCount(0);
+
+        for (Inventory i : items) {
+            model.addRow(new Object[]{
+                i.getIdInventory(),
+                i.getWarehouseName(),
+                i.getProductSku(),
+                i.getProductName(),
+                i.getStock(),
+                i.getReservedStock(),
+                i.getMinStock()
+            });
+        }
+    }
+
     private void abrirModalTransferencia() {
         int row = table.getSelectedRow();
-        if (row == -1) { 
-            JOptionPane.showMessageDialog(this, "Seleccione el registro de stock origen que desea mover."); 
-            return; 
+
+        if (row == -1) {
+            JOptionPane.showMessageDialog(this, "Seleccione el registro de stock origen que desea mover.");
+            return;
         }
-        
+
         int idSourceInv = (int) table.getValueAt(row, 0);
         String whName = (String) table.getValueAt(row, 1);
         String prodName = (String) table.getValueAt(row, 3);
         int maxAvailable = (int) table.getValueAt(row, 4);
 
-        JDialog modal = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Transferencia Interna de Mercadería", true);
+        JDialog modal = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Transferencia Interna de Mercaderia", true);
         modal.setLayout(new GridLayout(5, 2, 10, 10));
-        modal.setSize(400, 220);
+        modal.setSize(460, 230);
         modal.setLocationRelativeTo(this);
 
         JTextField tOrigen = new JTextField(whName + " (" + prodName + ")");
         tOrigen.setEnabled(false);
-        JTextField tIdTargetWh = new JTextField(); 
+
+        JComboBox<ReferenceItem> cmbTargetWarehouse = new JComboBox<>();
         JTextField tCantidad = new JTextField("0");
+        loadReferenceModel(cmbTargetWarehouse, () -> controller.listarAlmacenes());
 
-        modal.add(new JLabel(" Origen actual:")); modal.add(tOrigen);
-        modal.add(new JLabel(" ID Almacén Destino:")); modal.add(tIdTargetWh);
-        modal.add(new JLabel(" Cantidad a Mover (Max " + maxAvailable + "):")); modal.add(tCantidad);
+        modal.add(new JLabel(" Origen actual:"));
+        modal.add(tOrigen);
+        modal.add(new JLabel(" Almacen destino:"));
+        modal.add(cmbTargetWarehouse);
+        modal.add(new JLabel(" Cantidad a mover (Max " + maxAvailable + "):"));
+        modal.add(tCantidad);
 
-        JButton btnProcesar = new JButton("Confirmar Envío");
+        JButton btnProcesar = new JButton("Confirmar envio");
         btnProcesar.addActionListener(e -> {
             try {
-                int idDestino = Integer.parseInt(tIdTargetWh.getText().trim());
+                ReferenceItem destino = getSelectedReference(cmbTargetWarehouse, "Seleccione un almacen destino.");
                 int cant = Integer.parseInt(tCantidad.getText().trim());
 
                 if (cant > maxAvailable) {
-                    JOptionPane.showMessageDialog(modal, "No puedes transferir más del stock físico disponible.");
+                    JOptionPane.showMessageDialog(modal, "No puedes transferir mas del stock fisico disponible.");
                     return;
                 }
 
-                controller.transferirExistencias(idSourceInv, idDestino, cant);
-                JOptionPane.showMessageDialog(this, "¡Transferencia realizada con éxito!");
+                controller.transferirExistencias(idSourceInv, destino.getId(), cant);
+                JOptionPane.showMessageDialog(this, "Transferencia realizada con exito.");
                 modal.dispose();
                 cargarDatos();
             } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(modal, "Verifique que los campos numéricos sean válidos.");
+                JOptionPane.showMessageDialog(modal, "Verifique que la cantidad sea numerica.");
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(modal, ex.getMessage());
             }
         });
 
-        modal.add(new JLabel()); modal.add(btnProcesar);
+        modal.add(new JLabel());
+        modal.add(btnProcesar);
         modal.setVisible(true);
     }
 
     private void prepararEdicion() {
         int row = table.getSelectedRow();
-        if (row == -1) { JOptionPane.showMessageDialog(this, "Seleccione una fila de la grilla."); return; }
+
+        if (row == -1) {
+            JOptionPane.showMessageDialog(this, "Seleccione una fila de la grilla.");
+            return;
+        }
+
         Inventory i = new Inventory();
         i.setIdInventory((int) table.getValueAt(row, 0));
+        i.setWarehouseName(String.valueOf(table.getValueAt(row, 1)));
+        i.setProductSku(String.valueOf(table.getValueAt(row, 2)));
+        i.setProductName(String.valueOf(table.getValueAt(row, 3)));
         i.setStock((int) table.getValueAt(row, 4));
         i.setReservedStock((int) table.getValueAt(row, 5));
         i.setMinStock((int) table.getValueAt(row, 6));
@@ -153,50 +197,95 @@ public class InventarioJPanel extends BasePanel {
     private void openModal(Inventory inv) {
         JDialog modal = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Formulario de Existencias", true);
         modal.setLayout(new GridLayout(6, 2, 10, 10));
-        modal.setSize(350, 260);
+        modal.setSize(460, 280);
         modal.setLocationRelativeTo(this);
 
-        JTextField tIdW = new JTextField();
-        JTextField tIdP = new JTextField();
+        JComboBox<ReferenceItem> cmbWarehouse = new JComboBox<>();
+        JComboBox<ReferenceItem> cmbProduct = new JComboBox<>();
         JTextField tStock = new JTextField(inv != null ? String.valueOf(inv.getStock()) : "0");
         JTextField tRes = new JTextField(inv != null ? String.valueOf(inv.getReservedStock()) : "0");
         JTextField tMin = new JTextField(inv != null ? String.valueOf(inv.getMinStock()) : "0");
 
+        loadReferenceModel(cmbWarehouse, () -> controller.listarAlmacenes());
+        loadReferenceModel(cmbProduct, () -> controller.listarProductos());
+
+        java.awt.Component warehouseField = cmbWarehouse;
+        java.awt.Component productField = cmbProduct;
+
         if (inv != null) {
-            tIdW.setText("Fijo (Modo Edición)"); tIdW.setEnabled(false);
-            tIdP.setText("Fijo (Modo Edición)"); tIdP.setEnabled(false);
+            JTextField tWarehouse = new JTextField(inv.getWarehouseName());
+            JTextField tProduct = new JTextField(inv.getProductSku() + " - " + inv.getProductName());
+            tWarehouse.setEnabled(false);
+            tProduct.setEnabled(false);
+            warehouseField = tWarehouse;
+            productField = tProduct;
         }
 
-        modal.add(new JLabel(" ID Almacén (FK):")); modal.add(tIdW);
-        modal.add(new JLabel(" ID Producto (FK):")); modal.add(tIdP);
-        modal.add(new JLabel(" Stock Real:")); modal.add(tStock);
-        modal.add(new JLabel(" Reservado:")); modal.add(tRes);
-        modal.add(new JLabel(" Stock Mínimo:")); modal.add(tMin);
+        modal.add(new JLabel(" Almacen:"));
+        modal.add(warehouseField);
+        modal.add(new JLabel(" Producto:"));
+        modal.add(productField);
+        modal.add(new JLabel(" Stock real:"));
+        modal.add(tStock);
+        modal.add(new JLabel(" Reservado:"));
+        modal.add(tRes);
+        modal.add(new JLabel(" Stock minimo:"));
+        modal.add(tMin);
 
         JButton btnSave = new JButton("Procesar");
         btnSave.addActionListener(e -> {
             try {
-                int s = Integer.parseInt(tStock.getText());
-                int r = Integer.parseInt(tRes.getText());
-                int m = Integer.parseInt(tMin.getText());
+                int s = Integer.parseInt(tStock.getText().trim());
+                int r = Integer.parseInt(tRes.getText().trim());
+                int m = Integer.parseInt(tMin.getText().trim());
 
                 if (inv == null) {
-                    int idAlmacen = Integer.parseInt(tIdW.getText());
-                    int idProd = Integer.parseInt(tIdP.getText());
-                    controller.registrarInventario(idAlmacen, idProd, s, r, m);
+                    ReferenceItem almacen = getSelectedReference(cmbWarehouse, "Seleccione un almacen.");
+                    ReferenceItem producto = getSelectedReference(cmbProduct, "Seleccione un producto.");
+                    controller.registrarInventario(almacen.getId(), producto.getId(), s, r, m);
                 } else {
                     controller.modificarInventario(inv.getIdInventory(), s, r, m);
                 }
+
                 modal.dispose();
                 cargarDatos();
             } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(modal, "Campos numéricos inválidos.");
+                JOptionPane.showMessageDialog(modal, "Campos numericos invalidos.");
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(modal, ex.getMessage());
             }
         });
 
-        modal.add(new JLabel()); modal.add(btnSave);
+        modal.add(new JLabel());
+        modal.add(btnSave);
         modal.setVisible(true);
+    }
+
+    private void loadReferenceModel(JComboBox<ReferenceItem> comboBox, ReferenceLoader loader) {
+        try {
+            DefaultComboBoxModel<ReferenceItem> comboModel = new DefaultComboBoxModel<>();
+
+            for (ReferenceItem item : loader.load()) {
+                comboModel.addElement(item);
+            }
+
+            comboBox.setModel(comboModel);
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, e.getMessage());
+        }
+    }
+
+    private ReferenceItem getSelectedReference(JComboBox<ReferenceItem> comboBox, String message) throws Exception {
+        ReferenceItem item = (ReferenceItem) comboBox.getSelectedItem();
+
+        if (item == null || item.getId() <= 0) {
+            throw new Exception(message);
+        }
+
+        return item;
+    }
+
+    private interface ReferenceLoader {
+        List<ReferenceItem> load() throws Exception;
     }
 }
