@@ -100,6 +100,7 @@ public final class AppMessageDialog {
         dialog.setModal(true);
         dialog.setResizable(false);
         dialog.setAlwaysOnTop(true);
+        DialogUtils.centerAndLock(dialog, parent);
         dialog.setVisible(true);
     }
 
