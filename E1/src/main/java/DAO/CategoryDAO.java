@@ -1,35 +1,78 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package DAO;
 
+import Config.Database;
 import Models.Category;
-import Repositories.CategoryRepository;
-import Repositories.ICategoryRepository;
+import java.sql.*;
+import java.util.ArrayList;
 import java.util.List;
 
 public class CategoryDAO {
-    private final ICategoryRepository repository;
-
-    // Al instanciar el DAO, automáticamente se vincula con el repositorio de categorías
-    public CategoryDAO() {
-        this.repository = new CategoryRepository();
-    }
 
     public List<Category> listar() {
-        return repository.getAll();
+        List<Category> lista = new ArrayList<>();
+        String sql = "{CALL sp_listar_categorias()}";
+        
+        try (Connection con = Database.getConnection();
+             CallableStatement cs = con.prepareCall(sql);
+             ResultSet rs = cs.executeQuery()) {
+            
+            while (rs.next()) {
+                Category c = new Category();
+                c.setIdCategory(rs.getInt("id_category"));
+                c.setCategoryName(rs.getString("category_name"));
+                c.setDescription(rs.getString("description"));
+                c.setImagePath(rs.getString("image_path"));
+                lista.add(c);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return lista;
     }
 
-    public boolean registrar(Category cat) {
-        return repository.add(cat);
+    public boolean registrar(Category c) {
+        String sql = "{CALL sp_registrar_categoria(?, ?, ?)}";
+        try (Connection con = Database.getConnection();
+             CallableStatement cs = con.prepareCall(sql)) {
+            
+            cs.setString(1, c.getCategoryName());
+            cs.setString(2, c.getDescription());
+            cs.setString(3, c.getImagePath());
+            
+            return cs.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
-    public boolean modificar(Category cat) {
-        return repository.update(cat);
+    public boolean modificar(Category c) {
+        String sql = "{CALL sp_modificar_categoria(?, ?, ?, ?)}";
+        try (Connection con = Database.getConnection();
+             CallableStatement cs = con.prepareCall(sql)) {
+            
+            cs.setInt(1, c.getIdCategory());
+            cs.setString(2, c.getCategoryName());
+            cs.setString(3, c.getDescription());
+            cs.setString(4, c.getImagePath());
+            
+            return cs.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     public boolean eliminar(int id) {
-        return repository.delete(id);
+        String sql = "{CALL sp_eliminar_categoria(?)}";
+        try (Connection con = Database.getConnection();
+             CallableStatement cs = con.prepareCall(sql)) {
+            
+            cs.setInt(1, id);
+            return cs.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 }
