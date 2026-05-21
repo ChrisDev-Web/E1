@@ -1,5 +1,5 @@
-CREATE DATABASE Logistics2 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE Logistics2;
+CREATE DATABASE Logistics3 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE Logistics3;
 
 -- Tabla de Usuarios
 CREATE TABLE Users (
@@ -2292,6 +2292,8 @@ BEGIN
     ORDER BY created_at DESC, id_user DESC;
 END $$
 DELIMITER ;
+
+DELIMITER $$
 CREATE PROCEDURE sp_user_find_by_id(
     IN p_id_user INT
 )
