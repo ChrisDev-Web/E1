@@ -1,21 +1,28 @@
 package Controllers;
 
-import DAO.CategoryDAO;
-import DAO.ProductDAO;
 import Models.Category;
 import Models.Product;
+import Repositories.CategoryRepository;
+import Repositories.ICategoryRepository;
+import Repositories.IProductRepository;
+import Repositories.ProductRepository;
 import Views.ProductosJPanel;
 import java.math.BigDecimal;
 import java.util.List;
 
 public class ProductController {
 
-    private final ProductDAO productDao;
-    private final CategoryDAO categoryDao;
+    private final IProductRepository productRepository;
+    private final ICategoryRepository categoryRepository;
 
     public ProductController() {
-        this.productDao = new ProductDAO();
-        this.categoryDao = new CategoryDAO();
+        this.productRepository = new ProductRepository();
+        this.categoryRepository = new CategoryRepository();
+    }
+
+    public ProductController(IProductRepository productRepository, ICategoryRepository categoryRepository) {
+        this.productRepository = productRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     public ProductController(ProductosJPanel ignoredView) {
@@ -23,21 +30,21 @@ public class ProductController {
     }
 
     public List<Product> listProducts() {
-        return productDao.listar();
+        return productRepository.listAll();
     }
 
     public List<Product> searchProducts(String query) {
-        return productDao.buscar(query);
+        return productRepository.search(query);
     }
 
     public List<Category> listCategories() {
-        return categoryDao.listar();
+        return categoryRepository.listAll();
     }
 
     public void createProduct(Product product) throws Exception {
         validateProduct(product, false);
 
-        if (!productDao.registrar(product)) {
+        if (!productRepository.save(product)) {
             throw new Exception("No se pudo registrar el producto. Verifique que el SKU no este duplicado.");
         }
     }
@@ -45,7 +52,7 @@ public class ProductController {
     public void updateProduct(Product product) throws Exception {
         validateProduct(product, true);
 
-        if (!productDao.modificar(product)) {
+        if (!productRepository.update(product)) {
             throw new Exception("No se pudo actualizar el producto.");
         }
     }
@@ -55,7 +62,7 @@ public class ProductController {
             throw new Exception("Seleccione un producto valido para eliminar.");
         }
 
-        if (!productDao.eliminar(idProduct)) {
+        if (!productRepository.deleteById(idProduct)) {
             throw new Exception("No se pudo eliminar el producto.");
         }
     }

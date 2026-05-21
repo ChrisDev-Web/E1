@@ -1,16 +1,21 @@
 package Controllers;
 
-import DAO.CategoryDAO;
 import Models.Category;
+import Repositories.CategoryRepository;
+import Repositories.ICategoryRepository;
 import Views.CategoriasJPanel;
 import java.util.List;
 
 public class CategoryController {
 
-    private final CategoryDAO categoryDao;
+    private final ICategoryRepository categoryRepository;
 
     public CategoryController() {
-        this.categoryDao = new CategoryDAO();
+        this.categoryRepository = new CategoryRepository();
+    }
+
+    public CategoryController(ICategoryRepository categoryRepository) {
+        this.categoryRepository = categoryRepository;
     }
 
     public CategoryController(CategoriasJPanel ignoredView) {
@@ -18,17 +23,17 @@ public class CategoryController {
     }
 
     public List<Category> listCategories() {
-        return categoryDao.listar();
+        return categoryRepository.listAll();
     }
 
     public List<Category> searchCategories(String query) {
-        return categoryDao.buscar(query);
+        return categoryRepository.search(query);
     }
 
     public void createCategory(Category category) throws Exception {
         validateCategory(category, false);
 
-        if (!categoryDao.registrar(category)) {
+        if (!categoryRepository.save(category)) {
             throw new Exception("No se pudo registrar la categoria.");
         }
     }
@@ -36,7 +41,7 @@ public class CategoryController {
     public void updateCategory(Category category) throws Exception {
         validateCategory(category, true);
 
-        if (!categoryDao.modificar(category)) {
+        if (!categoryRepository.update(category)) {
             throw new Exception("No se pudo actualizar la categoria.");
         }
     }
@@ -46,7 +51,7 @@ public class CategoryController {
             throw new Exception("Seleccione una categoria valida para eliminar.");
         }
 
-        if (!categoryDao.eliminar(idCategory)) {
+        if (!categoryRepository.deleteById(idCategory)) {
             throw new Exception("No se pudo eliminar la categoria. Verifique si tiene productos asociados.");
         }
     }

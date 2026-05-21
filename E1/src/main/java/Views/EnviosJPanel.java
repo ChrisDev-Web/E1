@@ -157,11 +157,21 @@ public class EnviosJPanel extends JPanel implements IViewPanel {
         dtpSearchDate = buildDatePicker();
         dtpSearchDate.setPreferredSize(new Dimension(160, 34));
         dtpSearchDate.setEnabled(false);
+        dtpSearchDate.addDateChangeListener(event -> {
+            if (chkUseDate.isSelected()) {
+                searchFromFirstPage();
+            }
+        });
 
         chkUseDate.addActionListener(e -> {
-            dtpSearchDate.setEnabled(chkUseDate.isSelected());
+            boolean useDateFilter = chkUseDate.isSelected();
+            dtpSearchDate.setEnabled(useDateFilter);
 
-            if (!chkUseDate.isSelected()) {
+            if (useDateFilter) {
+                if (dtpSearchDate.getDate() == null) {
+                    dtpSearchDate.setDate(LocalDate.now());
+                }
+            } else {
                 dtpSearchDate.clear();
             }
 
