@@ -9,26 +9,34 @@ import java.util.List;
 public class ProductDAO {
 
     public List<Product> listar() {
+        return buscar("");
+    }
+
+    public List<Product> buscar(String query) {
         List<Product> list = new ArrayList<>();
-        String sql = "{CALL sp_listar_productos()}";
+        String sql = "{CALL sp_buscar_productos(?)}";
         
         try (Connection con = Database.getConnection();
-             CallableStatement cs = con.prepareCall(sql);
-             ResultSet rs = cs.executeQuery()) {
+             CallableStatement cs = con.prepareCall(sql)) {
+
+            cs.setString(1, query == null ? "" : query.trim());
+
+            try (ResultSet rs = cs.executeQuery()) {
             
-            while (rs.next()) {
-                Product prod = new Product(
-                    rs.getInt("id_product"),
-                    rs.getInt("id_category"),
-                    rs.getString("sku"),
-                    rs.getString("product_name"),
-                    rs.getString("description"),
-                    "", // image_path
-                    rs.getBigDecimal("unit_weight_kg"),
-                    rs.getBigDecimal("unit_price"),
-                    rs.getString("status")
-                );
-                list.add(prod);
+                while (rs.next()) {
+                    Product prod = new Product(
+                        rs.getInt("id_product"),
+                        rs.getInt("id_category"),
+                        rs.getString("sku"),
+                        rs.getString("product_name"),
+                        rs.getString("description"),
+                        rs.getString("image_path"),
+                        rs.getBigDecimal("unit_weight_kg"),
+                        rs.getBigDecimal("unit_price"),
+                        rs.getString("status")
+                    );
+                    list.add(prod);
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -37,7 +45,7 @@ public class ProductDAO {
     }
 
     public boolean registrar(Product p) {
-        String sql = "{CALL sp_registrar_producto(?, ?, ?, ?, ?, ?)}";
+        String sql = "{CALL sp_registrar_producto(?, ?, ?, ?, ?, ?, ?)}";
         try (Connection con = Database.getConnection();
              CallableStatement cs = con.prepareCall(sql)) {
             
@@ -45,8 +53,9 @@ public class ProductDAO {
             cs.setString(2, p.getSku());
             cs.setString(3, p.getProductName());
             cs.setString(4, p.getDescription());
-            cs.setBigDecimal(5, p.getUnitWeightKg());
-            cs.setBigDecimal(6, p.getUnitPrice());
+            cs.setString(5, p.getImagePath());
+            cs.setBigDecimal(6, p.getUnitWeightKg());
+            cs.setBigDecimal(7, p.getUnitPrice());
             
             return cs.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -56,7 +65,7 @@ public class ProductDAO {
     }
 
     public boolean modificar(Product p) {
-        String sql = "{CALL sp_modificar_producto(?, ?, ?, ?, ?, ?, ?, ?)}";
+        String sql = "{CALL sp_modificar_producto(?, ?, ?, ?, ?, ?, ?, ?, ?)}";
         try (Connection con = Database.getConnection();
              CallableStatement cs = con.prepareCall(sql)) {
             
@@ -65,9 +74,10 @@ public class ProductDAO {
             cs.setString(3, p.getSku());
             cs.setString(4, p.getProductName());
             cs.setString(5, p.getDescription());
-            cs.setBigDecimal(6, p.getUnitWeightKg());
-            cs.setBigDecimal(7, p.getUnitPrice());
-            cs.setString(8, p.getStatus());
+            cs.setString(6, p.getImagePath());
+            cs.setBigDecimal(7, p.getUnitWeightKg());
+            cs.setBigDecimal(8, p.getUnitPrice());
+            cs.setString(9, p.getStatus());
             
             return cs.executeUpdate() > 0;
         } catch (SQLException e) {

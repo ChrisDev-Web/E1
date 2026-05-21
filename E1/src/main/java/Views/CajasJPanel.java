@@ -1,5 +1,6 @@
 package Views;
 
+import Config.ImageStorage;
 import Controllers.BoxController;
 import Models.Box;
 import Models.ReferenceItem;
@@ -15,6 +16,7 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.Window;
+import java.io.File;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -445,6 +447,7 @@ public class CajasJPanel extends JPanel implements IViewPanel {
         private JTextField txtWeightKg;
         private JTextField txtDeclaredValue;
         private JComboBox<String> cmbStatus;
+        private File selectedImage;
 
         BoxFormDialog(Window owner, Box box) {
             super(owner instanceof Frame ? (Frame) owner : null, true);
@@ -470,6 +473,7 @@ public class CajasJPanel extends JPanel implements IViewPanel {
             loadShipmentOptions();
             txtBoxCode = createInput();
             txtImagePath = createInput();
+            txtImagePath.setEditable(false);
             txtLengthCm = createInput();
             txtWidthCm = createInput();
             txtHeightCm = createInput();
@@ -481,6 +485,16 @@ public class CajasJPanel extends JPanel implements IViewPanel {
             });
             cmbStatus.setFont(new Font("Segoe UI", Font.PLAIN, 13));
             cmbStatus.setPreferredSize(new Dimension(220, 34));
+
+            JButton btnImage = createToolbarButton("Elegir imagen", new Color(21, 101, 192));
+            btnImage.addActionListener(e -> {
+                File image = ImageStorage.chooseImage(this);
+
+                if (image != null) {
+                    selectedImage = image;
+                    txtImagePath.setText(image.getAbsolutePath());
+                }
+            });
 
             JPanel bodyPanel = new JPanel(new BorderLayout(0, 16));
             bodyPanel.setOpaque(false);
@@ -504,12 +518,13 @@ public class CajasJPanel extends JPanel implements IViewPanel {
             addField(formPanel, gbc, 0, "Envio", cmbShipment);
             addField(formPanel, gbc, 1, "Codigo", txtBoxCode);
             addField(formPanel, gbc, 2, "Imagen", txtImagePath);
-            addField(formPanel, gbc, 3, "Largo cm", txtLengthCm);
-            addField(formPanel, gbc, 4, "Ancho cm", txtWidthCm);
-            addField(formPanel, gbc, 5, "Alto cm", txtHeightCm);
-            addField(formPanel, gbc, 6, "Peso kg", txtWeightKg);
-            addField(formPanel, gbc, 7, "Valor declarado", txtDeclaredValue);
-            addField(formPanel, gbc, 8, "Estado", cmbStatus);
+            addField(formPanel, gbc, 3, "", btnImage);
+            addField(formPanel, gbc, 4, "Largo cm", txtLengthCm);
+            addField(formPanel, gbc, 5, "Ancho cm", txtWidthCm);
+            addField(formPanel, gbc, 6, "Alto cm", txtHeightCm);
+            addField(formPanel, gbc, 7, "Peso kg", txtWeightKg);
+            addField(formPanel, gbc, 8, "Valor declarado", txtDeclaredValue);
+            addField(formPanel, gbc, 9, "Estado", cmbStatus);
 
             boxCard.add(formPanel, BorderLayout.CENTER);
 
@@ -606,7 +621,11 @@ public class CajasJPanel extends JPanel implements IViewPanel {
 
                 box.setIdShipment(getSelectedReferenceId(cmbShipment, "Seleccione un envio valido."));
                 box.setBoxCode(txtBoxCode.getText().trim());
-                box.setImagePath(txtImagePath.getText().trim());
+                if (selectedImage != null) {
+                    box.setImagePath(ImageStorage.saveImage(selectedImage, "boxes", txtBoxCode.getText()));
+                } else if (editingBox == null) {
+                    box.setImagePath("");
+                }
                 box.setLengthCm(parseDecimal(txtLengthCm.getText(), "Ingrese un largo valido."));
                 box.setWidthCm(parseDecimal(txtWidthCm.getText(), "Ingrese un ancho valido."));
                 box.setHeightCm(parseDecimal(txtHeightCm.getText(), "Ingrese un alto valido."));

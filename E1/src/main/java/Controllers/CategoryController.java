@@ -21,6 +21,10 @@ public class CategoryController {
         return categoryDao.listar();
     }
 
+    public List<Category> searchCategories(String query) {
+        return categoryDao.buscar(query);
+    }
+
     public void createCategory(Category category) throws Exception {
         validateCategory(category, false);
 

@@ -6,6 +6,7 @@ import Repositories.IUserRepository;
 import Repositories.UserRepository;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.List;
 
 // MVC + POO: controlador que coordina validaciones, repositorio y vistas.
 public class UserController {
@@ -25,13 +26,18 @@ public class UserController {
 
     // MVC + Seguridad: valida, genera el hash y registra el usuario.
     public void registerUser(String userName, char[] password, char[] confirmPassword) throws Exception {
-        validateRegister(userName, password, confirmPassword);
+        createUser(userName, password, confirmPassword, "ACTIVE");
+    }
 
+    public void createUser(String userName, char[] password, char[] confirmPassword, String status) throws Exception {
         try {
+            validateRegister(userName, password, confirmPassword);
+            validateStatus(status);
             // PBKDF2: convierte la contrasena plana a un hash seguro antes de guardar.
             String hashedPassword = PasswordUtil.hashPassword(password);
             // POO: construye el modelo que sera enviado al repositorio.
             User user = new User(userName.trim(), hashedPassword);
+            user.setStatus(status.trim().toUpperCase());
             // Repository: delega la persistencia al repositorio.
             userRepository.register(user);
         } catch (SQLException e) {
@@ -55,6 +61,10 @@ public class UserController {
                 throw new Exception("No se pudo iniciar sesion. Verifique su usuario y contrasena.");
             }
 
+            if ("INACTIVE".equalsIgnoreCase(user.getStatus())) {
+                throw new Exception("El usuario esta inactivo. Solicite la reactivacion de la cuenta.");
+            }
+
             // PBKDF2: compara la contrasena plana con el hash almacenado.
             boolean validPassword = PasswordUtil.verifyPassword(password, user.getPassword());
 
@@ -68,6 +78,68 @@ public class UserController {
         } finally {
             // Seguridad: limpia la contrasena usada en el login.
             clearPassword(password);
+        }
+    }
+
+    public List<User> searchUsers(String query, String status) throws Exception {
+        try {
+            return userRepository.search(query, normalizeStatusFilter(status));
+        } catch (SQLException e) {
+            throw new Exception(getSqlMessage(e));
+        }
+    }
+
+    public User findUserById(int idUser) throws Exception {
+        if (idUser <= 0) {
+            throw new Exception("Seleccione un usuario valido.");
+        }
+
+        try {
+            return userRepository.findById(idUser);
+        } catch (SQLException e) {
+            throw new Exception(getSqlMessage(e));
+        }
+    }
+
+    public void updateUser(int idUser, String userName, char[] password, char[] confirmPassword, String status) throws Exception {
+        try {
+            if (idUser <= 0) {
+                throw new Exception("Seleccione un usuario valido para actualizar.");
+            }
+
+            validateUserName(userName);
+            validateStatus(status);
+
+            String hashedPassword = null;
+
+            if (hasPassword(password) || hasPassword(confirmPassword)) {
+                validatePasswordPair(password, confirmPassword);
+                hashedPassword = PasswordUtil.hashPassword(password);
+            }
+
+            User user = new User();
+            user.setIdUser(idUser);
+            user.setUserName(userName.trim());
+            user.setPassword(hashedPassword);
+            user.setStatus(status.trim().toUpperCase());
+            userRepository.update(user);
+        } catch (SQLException e) {
+            throw new Exception(getSqlMessage(e));
+        } finally {
+            clearPassword(password);
+            clearPassword(confirmPassword);
+        }
+    }
+
+    public void deleteUser(int idUser) throws Exception {
+        if (idUser <= 0) {
+            throw new Exception("Seleccione un usuario valido para eliminar.");
+        }
+
+        try {
+            userRepository.deleteById(idUser);
+        } catch (SQLException e) {
+            throw new Exception(getSqlMessage(e));
         }
     }
 
@@ -114,6 +186,41 @@ public class UserController {
         if (!Arrays.equals(password, confirmPassword)) {
             throw new Exception("Las contrasenas no coinciden. Revise ambos campos.");
         }
+    }
+
+    private void validateStatus(String status) throws Exception {
+        if (status == null || status.trim().isEmpty()) {
+            throw new Exception("Seleccione el estado del usuario.");
+        }
+
+        String normalizedStatus = status.trim().toUpperCase();
+
+        if (!"ACTIVE".equals(normalizedStatus) && !"INACTIVE".equals(normalizedStatus)) {
+            throw new Exception("El estado del usuario no es valido.");
+        }
+    }
+
+    private String normalizeStatusFilter(String status) {
+        if (status == null || status.trim().isEmpty()) {
+            return "ALL";
+        }
+
+        String normalizedStatus = status.trim().toUpperCase();
+        return "ACTIVE".equals(normalizedStatus) || "INACTIVE".equals(normalizedStatus) ? normalizedStatus : "ALL";
+    }
+
+    private boolean hasPassword(char[] password) {
+        if (password == null || password.length == 0) {
+            return false;
+        }
+
+        for (char character : password) {
+            if (character != '\0' && !Character.isWhitespace(character)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // Seguridad: sobrescribe el contenido del arreglo para no dejar la contrasena en memoria.

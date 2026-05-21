@@ -9,20 +9,28 @@ import java.util.List;
 public class CategoryDAO {
 
     public List<Category> listar() {
+        return buscar("");
+    }
+
+    public List<Category> buscar(String query) {
         List<Category> lista = new ArrayList<>();
-        String sql = "{CALL sp_listar_categorias()}";
+        String sql = "{CALL sp_buscar_categorias(?)}";
         
         try (Connection con = Database.getConnection();
-             CallableStatement cs = con.prepareCall(sql);
-             ResultSet rs = cs.executeQuery()) {
+             CallableStatement cs = con.prepareCall(sql)) {
+
+            cs.setString(1, query == null ? "" : query.trim());
+
+            try (ResultSet rs = cs.executeQuery()) {
             
-            while (rs.next()) {
-                Category c = new Category();
-                c.setIdCategory(rs.getInt("id_category"));
-                c.setCategoryName(rs.getString("category_name"));
-                c.setDescription(rs.getString("description"));
-                c.setImagePath(rs.getString("image_path"));
-                lista.add(c);
+                while (rs.next()) {
+                    Category c = new Category();
+                    c.setIdCategory(rs.getInt("id_category"));
+                    c.setCategoryName(rs.getString("category_name"));
+                    c.setDescription(rs.getString("description"));
+                    c.setImagePath(rs.getString("image_path"));
+                    lista.add(c);
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();

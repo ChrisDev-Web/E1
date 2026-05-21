@@ -26,6 +26,10 @@ public class ProductController {
         return productDao.listar();
     }
 
+    public List<Product> searchProducts(String query) {
+        return productDao.buscar(query);
+    }
+
     public List<Category> listCategories() {
         return categoryDao.listar();
     }
