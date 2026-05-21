@@ -13,6 +13,10 @@ public class Warehouses {
     private String status; // 'ACTIVE' o 'INACTIVE'
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private int productCount;
+    private int totalStock;
+    private int totalReservedStock;
+    private int availableStock;
 
     public Warehouses() {}
 
@@ -45,6 +49,14 @@ public class Warehouses {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public int getProductCount() { return productCount; }
+    public void setProductCount(int productCount) { this.productCount = productCount; }
+    public int getTotalStock() { return totalStock; }
+    public void setTotalStock(int totalStock) { this.totalStock = totalStock; }
+    public int getTotalReservedStock() { return totalReservedStock; }
+    public void setTotalReservedStock(int totalReservedStock) { this.totalReservedStock = totalReservedStock; }
+    public int getAvailableStock() { return availableStock; }
+    public void setAvailableStock(int availableStock) { this.availableStock = availableStock; }
 
     @Override
     public String toString() { return warehouseName; }

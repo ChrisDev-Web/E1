@@ -1,15 +1,18 @@
 package Views;
 
 import Controllers.AlmacenesController;
+import Models.Inventory;
 import Models.Warehouses;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.Window;
 import java.util.ArrayList;
@@ -88,7 +91,7 @@ public class AlmacenesJPanel extends JPanel implements IViewPanel {
                 ViewStyle.createTitlePanel(
                         VIEW_ICON,
                         "Gestion de Almacenes",
-                        "Administre sedes logisticas activas e inactivas con acciones por fila."
+                        "Consulte sedes, cantidad de productos y stock total sin salir del modulo."
                 ),
                 BorderLayout.NORTH
         );
@@ -143,14 +146,16 @@ public class AlmacenesJPanel extends JPanel implements IViewPanel {
 
     private void configureTable() {
         int actionsColumn = warehouseTableModel.getActionColumnIndex();
-        table.getColumnModel().getColumn(0).setPreferredWidth(220);
-        table.getColumnModel().getColumn(1).setPreferredWidth(260);
-        table.getColumnModel().getColumn(2).setPreferredWidth(130);
-        table.getColumnModel().getColumn(3).setPreferredWidth(110);
-        table.getColumnModel().getColumn(4).setPreferredWidth(120);
-        table.getColumnModel().getColumn(actionsColumn).setPreferredWidth(100);
-        table.getColumnModel().getColumn(actionsColumn).setMinWidth(100);
-        table.getColumnModel().getColumn(actionsColumn).setMaxWidth(100);
+        table.getColumnModel().getColumn(0).setPreferredWidth(180);
+        table.getColumnModel().getColumn(1).setPreferredWidth(150);
+        table.getColumnModel().getColumn(2).setPreferredWidth(110);
+        table.getColumnModel().getColumn(3).setPreferredWidth(90);
+        table.getColumnModel().getColumn(4).setPreferredWidth(100);
+        table.getColumnModel().getColumn(5).setPreferredWidth(110);
+        table.getColumnModel().getColumn(6).setPreferredWidth(110);
+        table.getColumnModel().getColumn(actionsColumn).setPreferredWidth(130);
+        table.getColumnModel().getColumn(actionsColumn).setMinWidth(130);
+        table.getColumnModel().getColumn(actionsColumn).setMaxWidth(130);
         table.getColumnModel().getColumn(actionsColumn).setCellRenderer(new WarehouseActionCellRenderer());
         table.getColumnModel().getColumn(actionsColumn).setCellEditor(new WarehouseActionCellEditor());
     }
@@ -185,7 +190,9 @@ public class AlmacenesJPanel extends JPanel implements IViewPanel {
     private void loadWarehouses() {
         try {
             currentWarehouses.clear();
-            currentWarehouses.addAll(showingInactive ? controller.listarInactivos() : controller.listarActivos());
+            currentWarehouses.addAll(showingInactive
+                    ? controller.listarInactivosConResumen()
+                    : controller.listarActivosConResumen());
             warehouseTableModel.setItems(currentWarehouses);
         } catch (Exception e) {
             AppMessageDialog.showError(this, VIEW_TITLE, e.getMessage());
@@ -195,7 +202,7 @@ public class AlmacenesJPanel extends JPanel implements IViewPanel {
     private void searchWarehouses() {
         try {
             currentWarehouses.clear();
-            currentWarehouses.addAll(controller.buscarAlmacenes(txtSearch.getText(), showingInactive));
+            currentWarehouses.addAll(controller.buscarAlmacenesConResumen(txtSearch.getText(), showingInactive));
             warehouseTableModel.setItems(currentWarehouses);
         } catch (Exception e) {
             AppMessageDialog.showError(this, VIEW_TITLE, e.getMessage());
@@ -221,6 +228,16 @@ public class AlmacenesJPanel extends JPanel implements IViewPanel {
 
         if (dialog.isSaved()) {
             loadWarehouses();
+        }
+    }
+
+    private void openWarehouseDetail(Warehouses warehouse) {
+        try {
+            List<Inventory> inventoryItems = controller.listarInventarioDeAlmacen(warehouse.getIdWarehouse());
+            WarehouseDetailDialog dialog = new WarehouseDetailDialog(resolveWindow(), warehouse, inventoryItems);
+            dialog.setVisible(true);
+        } catch (Exception e) {
+            AppMessageDialog.showError(this, VIEW_TITLE, e.getMessage());
         }
     }
 
@@ -270,8 +287,10 @@ public class AlmacenesJPanel extends JPanel implements IViewPanel {
 
     private class WarehouseTableModel extends AbstractTableModel {
 
-        private static final int ACTIONS_COLUMN_INDEX = 5;
-        private final String[] columns = {"Nombre", "Direccion", "Ciudad", "Pais", "Telefono", "Acciones"};
+        private static final int ACTIONS_COLUMN_INDEX = 7;
+        private final String[] columns = {
+            "Nombre", "Ciudad", "Productos", "Stock", "Reservado", "Disponible", "Telefono", "Acciones"
+        };
         private final List<Warehouses> items = new ArrayList<>();
 
         void setItems(List<Warehouses> warehouses) {
@@ -320,12 +339,16 @@ public class AlmacenesJPanel extends JPanel implements IViewPanel {
                 case 0:
                     return warehouse.getWarehouseName();
                 case 1:
-                    return warehouse.getAddress();
-                case 2:
                     return warehouse.getCity();
+                case 2:
+                    return warehouse.getProductCount();
                 case 3:
-                    return warehouse.getCountry();
+                    return warehouse.getTotalStock();
                 case 4:
+                    return warehouse.getTotalReservedStock();
+                case 5:
+                    return warehouse.getAvailableStock();
+                case 6:
                     return warehouse.getPhone();
                 case ACTIONS_COLUMN_INDEX:
                     return warehouse;
@@ -337,21 +360,9 @@ public class AlmacenesJPanel extends JPanel implements IViewPanel {
 
     private class WarehouseActionCellRenderer extends JPanel implements TableCellRenderer {
 
-        private final JButton btnPrimary;
-        private final JButton btnDanger;
-
         WarehouseActionCellRenderer() {
             setLayout(new FlowLayout(FlowLayout.CENTER, 6, 4));
             setOpaque(true);
-
-            btnPrimary = ViewStyle.createTableIconButton(
-                    showingInactive ? FontAwesome.UNDO : FontAwesome.PENCIL,
-                    showingInactive ? "Restaurar" : "Editar",
-                    showingInactive ? new Color(46, 125, 50) : new Color(245, 124, 0)
-            );
-            btnDanger = ViewStyle.createTableIconButton(FontAwesome.TRASH, "Eliminar", new Color(198, 40, 40));
-            add(btnPrimary);
-            add(btnDanger);
         }
 
         @Override
@@ -360,33 +371,8 @@ public class AlmacenesJPanel extends JPanel implements IViewPanel {
             Color background = isSelected ? table.getSelectionBackground() : Color.WHITE;
             setBackground(background);
 
-            JButton primary = ViewStyle.createTableIconButton(
-                    showingInactive ? FontAwesome.UNDO : FontAwesome.PENCIL,
-                    showingInactive ? "Restaurar" : "Editar",
-                    showingInactive ? new Color(46, 125, 50) : new Color(245, 124, 0)
-            );
-            JButton danger = ViewStyle.createTableIconButton(FontAwesome.TRASH, showingInactive ? "Eliminar fisico" : "Inactivar", new Color(198, 40, 40));
-            primary.setBackground(background);
-            danger.setBackground(background);
-            add(primary);
-            add(danger);
-            return this;
-        }
-    }
-
-    private class WarehouseActionCellEditor extends AbstractCellEditor implements TableCellEditor {
-
-        private final JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 4));
-        private int editingRow = -1;
-
-        @Override
-        public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
-            editingRow = row;
-            panel.removeAll();
-            panel.setOpaque(true);
-            panel.setBackground(table.getSelectionBackground());
-
-            JButton btnPrimary = ViewStyle.createTableIconButton(
+            JButton btnDetail = ViewStyle.createTableIconButton(FontAwesome.EYE, "Ver inventario", new Color(69, 90, 100));
+            JButton btnSecondary = ViewStyle.createTableIconButton(
                     showingInactive ? FontAwesome.UNDO : FontAwesome.PENCIL,
                     showingInactive ? "Restaurar" : "Editar",
                     showingInactive ? new Color(46, 125, 50) : new Color(245, 124, 0)
@@ -397,10 +383,50 @@ public class AlmacenesJPanel extends JPanel implements IViewPanel {
                     new Color(198, 40, 40)
             );
 
-            btnPrimary.addActionListener(e -> handleAction("primary"));
+            btnDetail.setBackground(background);
+            btnSecondary.setBackground(background);
+            btnDanger.setBackground(background);
+
+            add(btnDetail);
+            add(btnSecondary);
+            add(btnDanger);
+            return this;
+        }
+    }
+
+    private class WarehouseActionCellEditor extends AbstractCellEditor implements TableCellEditor {
+
+        private final JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 4));
+        private int editingRow = -1;
+
+        WarehouseActionCellEditor() {
+            panel.setOpaque(true);
+        }
+
+        @Override
+        public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
+            editingRow = row;
+            panel.removeAll();
+            panel.setBackground(table.getSelectionBackground());
+
+            JButton btnDetail = ViewStyle.createTableIconButton(FontAwesome.EYE, "Ver inventario", new Color(69, 90, 100));
+            JButton btnSecondary = ViewStyle.createTableIconButton(
+                    showingInactive ? FontAwesome.UNDO : FontAwesome.PENCIL,
+                    showingInactive ? "Restaurar" : "Editar",
+                    showingInactive ? new Color(46, 125, 50) : new Color(245, 124, 0)
+            );
+            JButton btnDanger = ViewStyle.createTableIconButton(
+                    FontAwesome.TRASH,
+                    showingInactive ? "Eliminar fisico" : "Inactivar",
+                    new Color(198, 40, 40)
+            );
+
+            btnDetail.addActionListener(e -> handleAction("detail"));
+            btnSecondary.addActionListener(e -> handleAction("secondary"));
             btnDanger.addActionListener(e -> handleAction("danger"));
 
-            panel.add(btnPrimary);
+            panel.add(btnDetail);
+            panel.add(btnSecondary);
             panel.add(btnDanger);
             return panel;
         }
@@ -415,7 +441,9 @@ public class AlmacenesJPanel extends JPanel implements IViewPanel {
             Warehouses warehouse = warehouseTableModel.getWarehouseAt(modelRow);
             fireEditingStopped();
 
-            if ("primary".equals(action)) {
+            if ("detail".equals(action)) {
+                openWarehouseDetail(warehouse);
+            } else if ("secondary".equals(action)) {
                 if (showingInactive) {
                     restoreWarehouse(warehouse);
                 } else {
@@ -551,6 +579,127 @@ public class AlmacenesJPanel extends JPanel implements IViewPanel {
                 dispose();
             } catch (Exception ex) {
                 AppMessageDialog.showError(this, VIEW_TITLE, ex.getMessage());
+            }
+        }
+    }
+
+    private class WarehouseDetailDialog extends JDialog {
+
+        WarehouseDetailDialog(Window owner, Warehouses warehouse, List<Inventory> inventoryItems) {
+            super(owner instanceof Frame ? (Frame) owner : null, "Detalle del Almacen", true);
+            buildDialog(warehouse, inventoryItems);
+        }
+
+        private void buildDialog(Warehouses warehouse, List<Inventory> inventoryItems) {
+            DialogUtils.applyDialogTheme(this);
+            setLayout(new BorderLayout(0, 0));
+            setPreferredSize(new Dimension(1080, 760));
+
+            JPanel headerPanel = DialogUtils.createHeader(
+                    ViewIcons.build(FontAwesome.BUILDING_O, 24, Color.WHITE),
+                    "Detalle del Almacen",
+                    "Revise productos asignados, stock total y disponibilidad.",
+                    new Color(13, 71, 161)
+            );
+
+            JPanel bodyPanel = new JPanel(new BorderLayout(0, 16));
+            bodyPanel.setOpaque(false);
+            bodyPanel.setBorder(BorderFactory.createEmptyBorder(18, 18, 18, 18));
+
+            JPanel summaryPanel = new JPanel(new GridLayout(1, 4, 12, 12));
+            summaryPanel.setOpaque(false);
+            summaryPanel.add(DialogUtils.createInfoTile("Almacen", warehouse.getWarehouseName()));
+            summaryPanel.add(DialogUtils.createInfoTile("Productos", String.valueOf(warehouse.getProductCount())));
+            summaryPanel.add(DialogUtils.createInfoTile("Stock total", String.valueOf(warehouse.getTotalStock())));
+            summaryPanel.add(DialogUtils.createInfoTile("Disponible", String.valueOf(warehouse.getAvailableStock())));
+
+            JPanel infoCard = DialogUtils.createCard("Datos Generales");
+            JPanel infoGrid = new JPanel(new GridLayout(1, 3, 12, 12));
+            infoGrid.setOpaque(false);
+            infoGrid.add(DialogUtils.createInfoTile("Ciudad", warehouse.getCity()));
+            infoGrid.add(DialogUtils.createInfoTile("Pais", warehouse.getCountry()));
+            infoGrid.add(DialogUtils.createInfoTile("Telefono", warehouse.getPhone()));
+            infoCard.add(infoGrid, BorderLayout.CENTER);
+
+            JTable inventoryTable = new JTable(new WarehouseInventoryTableModel(inventoryItems));
+            ViewStyle.styleTable(inventoryTable);
+            inventoryTable.setRowHeight(32);
+            inventoryTable.getColumnModel().getColumn(0).setPreferredWidth(140);
+            inventoryTable.getColumnModel().getColumn(1).setPreferredWidth(260);
+            inventoryTable.getColumnModel().getColumn(2).setPreferredWidth(100);
+            inventoryTable.getColumnModel().getColumn(3).setPreferredWidth(100);
+            inventoryTable.getColumnModel().getColumn(4).setPreferredWidth(100);
+
+            JPanel inventoryCard = DialogUtils.createCard("Inventario del Almacen");
+            inventoryCard.add(DialogUtils.createScrollPane(inventoryTable), BorderLayout.CENTER);
+
+            JButton btnClose = ViewStyle.createToolbarButton("Cerrar", null, new Color(96, 125, 139));
+            btnClose.addActionListener(e -> dispose());
+
+            JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            footer.setOpaque(false);
+            footer.add(btnClose);
+
+            bodyPanel.add(summaryPanel, BorderLayout.NORTH);
+
+            JPanel contentPanel = new JPanel(new BorderLayout(0, 16));
+            contentPanel.setOpaque(false);
+            contentPanel.add(infoCard, BorderLayout.NORTH);
+            contentPanel.add(inventoryCard, BorderLayout.CENTER);
+
+            bodyPanel.add(contentPanel, BorderLayout.CENTER);
+
+            add(headerPanel, BorderLayout.NORTH);
+            add(bodyPanel, BorderLayout.CENTER);
+            add(footer, BorderLayout.SOUTH);
+
+            pack();
+            setMinimumSize(new Dimension(1000, 720));
+            DialogUtils.centerAndLock(this, AlmacenesJPanel.this);
+        }
+    }
+
+    private static class WarehouseInventoryTableModel extends AbstractTableModel {
+
+        private final String[] columns = {"SKU", "Producto", "Stock", "Reservado", "Minimo"};
+        private final List<Inventory> items;
+
+        WarehouseInventoryTableModel(List<Inventory> inventoryItems) {
+            this.items = inventoryItems == null ? new ArrayList<>() : new ArrayList<>(inventoryItems);
+        }
+
+        @Override
+        public int getRowCount() {
+            return items.size();
+        }
+
+        @Override
+        public int getColumnCount() {
+            return columns.length;
+        }
+
+        @Override
+        public String getColumnName(int column) {
+            return columns[column];
+        }
+
+        @Override
+        public Object getValueAt(int rowIndex, int columnIndex) {
+            Inventory inventory = items.get(rowIndex);
+
+            switch (columnIndex) {
+                case 0:
+                    return inventory.getProductSku();
+                case 1:
+                    return inventory.getProductName();
+                case 2:
+                    return inventory.getStock();
+                case 3:
+                    return inventory.getReservedStock();
+                case 4:
+                    return inventory.getMinStock();
+                default:
+                    return "";
             }
         }
     }

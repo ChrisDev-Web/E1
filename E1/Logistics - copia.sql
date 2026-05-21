@@ -1775,3 +1775,119 @@ BEGIN
 END $$
 
 DELIMITER ;
+
+-- SP Logout
+
+DELIMITER $$
+CREATE PROCEDURE sp_user_logout(
+    IN p_id_user INT
+)
+BEGIN
+    IF p_id_user IS NULL OR p_id_user <= 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El usuario para cerrar sesion no es valido.';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM Users
+        WHERE id_user = p_id_user
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El usuario indicado no existe.';
+    END IF;
+
+    UPDATE Users
+    SET updated_at = CURRENT_TIMESTAMP
+    WHERE id_user = p_id_user;
+END $$
+DELIMITER ;
+
+-- MEJORA
+
+DELIMITER $$
+-- =========================================================================
+-- 5. BUSCAR ALMACENES CON RESUMEN DE PRODUCTOS Y STOCK
+-- =========================================================================
+CREATE PROCEDURE sp_warehouse_search_with_summary(
+    IN p_query VARCHAR(100),
+    IN p_status ENUM('ACTIVE', 'INACTIVE')
+)
+BEGIN
+    SELECT
+        w.id_warehouse,
+        w.warehouse_name,
+        w.address,
+        w.city,
+        w.country,
+        w.phone,
+        w.status,
+        w.created_at,
+        w.updated_at,
+        COUNT(DISTINCT i.id_product) AS product_count,
+        COALESCE(SUM(i.stock), 0) AS total_stock,
+        COALESCE(SUM(i.reserved_stock), 0) AS reserved_stock,
+        COALESCE(SUM(i.stock - i.reserved_stock), 0) AS available_stock
+    FROM Warehouses w
+    LEFT JOIN Inventory i ON i.id_warehouse = w.id_warehouse
+    WHERE w.status = p_status
+      AND (
+            p_query IS NULL
+            OR TRIM(p_query) = ''
+            OR (p_query REGEXP '^[0-9]+$' AND w.id_warehouse = CAST(p_query AS SIGNED))
+            OR w.warehouse_name LIKE CONCAT('%', TRIM(p_query), '%')
+            OR w.city LIKE CONCAT('%', TRIM(p_query), '%')
+            OR w.country LIKE CONCAT('%', TRIM(p_query), '%')
+          )
+    GROUP BY
+        w.id_warehouse,
+        w.warehouse_name,
+        w.address,
+        w.city,
+        w.country,
+        w.phone,
+        w.status,
+        w.created_at,
+        w.updated_at
+    ORDER BY w.warehouse_name, w.city;
+END $$
+
+-- =========================================================================
+-- 6. DETALLE DE INVENTARIO POR ALMACEN
+-- =========================================================================
+CREATE PROCEDURE sp_warehouse_inventory_detail(
+    IN p_id_warehouse INT
+)
+BEGIN
+    IF p_id_warehouse IS NULL OR p_id_warehouse <= 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El almacen seleccionado no es valido.';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM Warehouses
+        WHERE id_warehouse = p_id_warehouse
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El almacen seleccionado no existe.';
+    END IF;
+
+    SELECT
+        i.id_inventory,
+        i.id_warehouse,
+        i.id_product,
+        i.stock,
+        i.reserved_stock,
+        i.min_stock,
+        w.warehouse_name,
+        p.sku,
+        p.product_name
+    FROM Inventory i
+    INNER JOIN Warehouses w ON w.id_warehouse = i.id_warehouse
+    INNER JOIN Products p ON p.id_product = i.id_product
+    WHERE i.id_warehouse = p_id_warehouse
+    ORDER BY p.product_name, p.sku;
+END $$
+
+DELIMITER ;

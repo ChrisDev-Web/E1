@@ -1,10 +1,11 @@
 package Controllers;
 
-    import Models.Warehouses;
-    import Repositories.IWarehousesRepository;
-    import Repositories.WarehousesRepository;
-    import java.sql.SQLException;
-    import java.util.List;
+import Models.Inventory;
+import Models.Warehouses;
+import Repositories.IWarehousesRepository;
+import Repositories.WarehousesRepository;
+import java.sql.SQLException;
+import java.util.List;
 
 public class AlmacenesController {
     private final IWarehousesRepository repo;
@@ -55,11 +56,35 @@ public class AlmacenesController {
         try { return repo.findByStatus("ACTIVE"); } catch (SQLException e) { throw new Exception(e.getMessage()); }
     }
 
+    public List<Warehouses> listarActivosConResumen() throws Exception {
+        try { return repo.findByStatusWithSummary("ACTIVE"); } catch (SQLException e) { throw new Exception(e.getMessage()); }
+    }
+
     public List<Warehouses> listarInactivos() throws Exception {
         try { return repo.findByStatus("INACTIVE"); } catch (SQLException e) { throw new Exception(e.getMessage()); }
     }
 
+    public List<Warehouses> listarInactivosConResumen() throws Exception {
+        try { return repo.findByStatusWithSummary("INACTIVE"); } catch (SQLException e) { throw new Exception(e.getMessage()); }
+    }
+
     public List<Warehouses> buscarAlmacenes(String query, boolean deInactivos) throws Exception {
         try { return repo.search(query.trim(), deInactivos ? "INACTIVE" : "ACTIVE"); } catch (SQLException e) { throw new Exception(e.getMessage()); }
+    }
+
+    public List<Warehouses> buscarAlmacenesConResumen(String query, boolean deInactivos) throws Exception {
+        try { return repo.searchWithSummary(query == null ? "" : query.trim(), deInactivos ? "INACTIVE" : "ACTIVE"); } catch (SQLException e) { throw new Exception(e.getMessage()); }
+    }
+
+    public List<Inventory> listarInventarioDeAlmacen(int idWarehouse) throws Exception {
+        if (idWarehouse <= 0) {
+            throw new Exception("Seleccione un almacen valido.");
+        }
+
+        try {
+            return repo.findInventoryDetail(idWarehouse);
+        } catch (SQLException e) {
+            throw new Exception("No se pudo cargar el inventario del almacen: " + e.getMessage());
+        }
     }
 }

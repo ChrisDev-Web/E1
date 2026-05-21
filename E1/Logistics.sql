@@ -1,8 +1,12 @@
+CREATE DATABASE Logistics2 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE Logistics2;
+
 -- Tabla de Usuarios
 CREATE TABLE Users (
     id_user INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
+    status ENUM("ACTIVE","INACTIVE") NOT NULL DEFAULT "ACTIVE",
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -54,6 +58,7 @@ CREATE TABLE Warehouses (
     city VARCHAR(80) NOT NULL,
     country VARCHAR(80) NOT NULL,
     phone VARCHAR(20),
+    status ENUM('active', 'inactive') DEFAULT 'active',
     image_path VARCHAR(255),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -189,84 +194,6 @@ CREATE TABLE ShipmentTracking (
         ON DELETE SET NULL
 );
 
--- SP Espinoza
-
-DELIMITER $$
-
-CREATE PROCEDURE sp_user_register(
-    IN p_username VARCHAR(50),
-    IN p_password_hash VARCHAR(255)
-)
-BEGIN
-    IF p_username IS NULL OR TRIM(p_username) = '' THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'El username es obligatorio.';
-    END IF;
-
-    IF p_password_hash IS NULL OR TRIM(p_password_hash) = '' THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'El password_hash es obligatorio.';
-    END IF;
-
-    IF EXISTS (
-        SELECT 1
-        FROM Users
-        WHERE username = TRIM(p_username)
-    ) THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'El nombre de usuario ya existe.';
-    END IF;
-
-    INSERT INTO Users (
-        username,
-        password_hash
-    )
-    VALUES (
-        TRIM(p_username),
-        TRIM(p_password_hash)
-    );
-END $$
-
-CREATE PROCEDURE sp_user_login(
-    IN p_username VARCHAR(50)
-)
-BEGIN
-    SELECT
-        id_user,
-        username,
-        password_hash,
-        created_at,
-        updated_at
-    FROM Users
-    WHERE username = TRIM(p_username)
-    LIMIT 1;
-END $$
-
-CREATE PROCEDURE sp_user_logout(
-    IN p_id_user INT
-)
-BEGIN
-    IF p_id_user IS NULL OR p_id_user <= 0 THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'El usuario para cerrar sesion no es valido.';
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1
-        FROM Users
-        WHERE id_user = p_id_user
-    ) THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'El usuario indicado no existe.';
-    END IF;
-
-    UPDATE Users
-    SET updated_at = CURRENT_TIMESTAMP
-    WHERE id_user = p_id_user;
-END $$
-
-DELIMITER ;
-
 -- SP Neil
 
 DELIMITER $$
@@ -296,24 +223,6 @@ BEGIN
     FROM Clients c
     WHERE c.deleted_at IS NULL
     ORDER BY c.name, c.last_name_paternal, c.last_name_maternal;
-END $$
-
-CREATE PROCEDURE sp_warehouse_list_for_combo()
-BEGIN
-    SELECT
-        w.id_warehouse AS id,
-        CONCAT('Almacen ', w.id_warehouse) AS label
-    FROM Warehouses w
-    ORDER BY label;
-END $$
-
-CREATE PROCEDURE sp_user_list_for_combo()
-BEGIN
-    SELECT
-        u.id_user AS id,
-        u.username AS label
-    FROM Users u
-    ORDER BY u.username;
 END $$
 
 CREATE PROCEDURE sp_client_create(
@@ -1443,6 +1352,542 @@ BEGIN
         END IF;
         
     COMMIT;
+END $$
+
+DELIMITER ;
+
+-- =========================================================================
+-- PROCEDIMIENTOS DE REFERENCIA PARA COMBOS DE LA APLICACION
+-- Estos SP evitan que el usuario escriba IDs manualmente en la interfaz.
+-- =========================================================================
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_warehouse_list_for_combo()
+BEGIN
+    SELECT
+        w.id_warehouse AS id,
+        CONCAT(w.warehouse_name, ' - ', w.city) AS label
+    FROM Warehouses w
+    ORDER BY w.warehouse_name, w.city;
+END $$
+
+CREATE PROCEDURE sp_user_list_for_combo()
+BEGIN
+    SELECT
+        u.id_user AS id,
+        u.username AS label
+    FROM Users u
+    ORDER BY u.username;
+END $$
+
+CREATE PROCEDURE sp_product_list_for_combo()
+BEGIN
+    SELECT
+        p.id_product AS id,
+        CONCAT(p.sku, ' - ', p.product_name) AS label
+    FROM Products p
+    WHERE p.status = 'ACTIVE'
+    ORDER BY p.product_name, p.sku;
+END $$
+
+CREATE PROCEDURE sp_shipment_list_for_combo()
+BEGIN
+    SELECT
+        s.id_shipment AS id,
+        CONCAT(s.tracking_code, ' - ', s.status) AS label
+    FROM Shipments s
+    ORDER BY s.shipment_date DESC, s.id_shipment DESC;
+END $$
+
+CREATE PROCEDURE sp_box_list_for_combo()
+BEGIN
+    SELECT
+        b.id_box AS id,
+        CONCAT(b.box_code, ' - ', s.tracking_code) AS label
+    FROM Boxes b
+    INNER JOIN Shipments s ON s.id_shipment = b.id_shipment
+    ORDER BY s.shipment_date DESC, b.box_code;
+END $$
+
+CREATE PROCEDURE sp_box_list_for_combo_by_shipment(IN p_id_shipment INT)
+BEGIN
+    SELECT
+        b.id_box AS id,
+        b.box_code AS label
+    FROM Boxes b
+    WHERE b.id_shipment = p_id_shipment
+    ORDER BY b.box_code;
+END $$
+
+DELIMITER ;
+
+-- SP Sergio
+DELIMITER $$
+
+CREATE PROCEDURE sp_buscar_categorias(IN p_search VARCHAR(120))
+BEGIN
+    SELECT
+        c.id_category,
+        c.category_name,
+        c.description,
+        c.image_path,
+        c.created_at,
+        c.updated_at
+    FROM Categories c
+    WHERE p_search IS NULL
+       OR TRIM(p_search) = ''
+       OR c.category_name LIKE CONCAT('%', TRIM(p_search), '%')
+       OR c.description LIKE CONCAT('%', TRIM(p_search), '%')
+    ORDER BY c.category_name;
+END $$
+
+CREATE PROCEDURE sp_listar_categorias()
+BEGIN
+    CALL sp_buscar_categorias('');
+END $$
+
+CREATE PROCEDURE sp_registrar_categoria(
+    IN p_category_name VARCHAR(100),
+    IN p_description VARCHAR(255),
+    IN p_image_path VARCHAR(255)
+)
+BEGIN
+    IF p_category_name IS NULL OR TRIM(p_category_name) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nombre de la categoria es obligatorio.';
+    END IF;
+
+    INSERT INTO Categories (category_name, description, image_path)
+    VALUES (TRIM(p_category_name), NULLIF(TRIM(p_description), ''), NULLIF(TRIM(p_image_path), ''));
+END $$
+
+CREATE PROCEDURE sp_modificar_categoria(
+    IN p_id_category INT,
+    IN p_category_name VARCHAR(100),
+    IN p_description VARCHAR(255),
+    IN p_image_path VARCHAR(255)
+)
+BEGIN
+    IF p_id_category IS NULL OR p_id_category <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Seleccione una categoria valida.';
+    END IF;
+
+    IF p_category_name IS NULL OR TRIM(p_category_name) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nombre de la categoria es obligatorio.';
+    END IF;
+
+    UPDATE Categories
+    SET category_name = TRIM(p_category_name),
+        description = NULLIF(TRIM(p_description), ''),
+        image_path = NULLIF(TRIM(p_image_path), '')
+    WHERE id_category = p_id_category;
+END $$
+
+CREATE PROCEDURE sp_eliminar_categoria(IN p_id_category INT)
+BEGIN
+    DELETE FROM Categories
+    WHERE id_category = p_id_category;
+END $$
+
+CREATE PROCEDURE sp_buscar_productos(IN p_search VARCHAR(160))
+BEGIN
+    SELECT
+        p.id_product,
+        p.id_category,
+        p.sku,
+        p.product_name,
+        p.description,
+        p.image_path,
+        p.unit_weight_kg,
+        p.unit_price,
+        p.status,
+        p.created_at,
+        p.updated_at
+    FROM Products p
+    INNER JOIN Categories c ON c.id_category = p.id_category
+    WHERE p_search IS NULL
+       OR TRIM(p_search) = ''
+       OR p.sku LIKE CONCAT('%', TRIM(p_search), '%')
+       OR p.product_name LIKE CONCAT('%', TRIM(p_search), '%')
+       OR p.description LIKE CONCAT('%', TRIM(p_search), '%')
+       OR c.category_name LIKE CONCAT('%', TRIM(p_search), '%')
+       OR p.status LIKE CONCAT('%', TRIM(p_search), '%')
+    ORDER BY p.product_name, p.sku;
+END $$
+
+CREATE PROCEDURE sp_listar_productos()
+BEGIN
+    CALL sp_buscar_productos('');
+END $$
+
+CREATE PROCEDURE sp_registrar_producto(
+    IN p_id_category INT,
+    IN p_sku VARCHAR(50),
+    IN p_product_name VARCHAR(120),
+    IN p_description VARCHAR(255),
+    IN p_image_path VARCHAR(255),
+    IN p_unit_weight_kg DECIMAL(10,2),
+    IN p_unit_price DECIMAL(10,2)
+)
+BEGIN
+    IF p_id_category IS NULL OR p_id_category <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Seleccione una categoria valida.';
+    END IF;
+
+    IF p_sku IS NULL OR TRIM(p_sku) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El SKU es obligatorio.';
+    END IF;
+
+    IF p_product_name IS NULL OR TRIM(p_product_name) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nombre del producto es obligatorio.';
+    END IF;
+
+    INSERT INTO Products (
+        id_category,
+        sku,
+        product_name,
+        description,
+        image_path,
+        unit_weight_kg,
+        unit_price,
+        status
+    )
+    VALUES (
+        p_id_category,
+        TRIM(p_sku),
+        TRIM(p_product_name),
+        NULLIF(TRIM(p_description), ''),
+        NULLIF(TRIM(p_image_path), ''),
+        IFNULL(p_unit_weight_kg, 0),
+        IFNULL(p_unit_price, 0),
+        'ACTIVE'
+    );
+END $$
+
+CREATE PROCEDURE sp_modificar_producto(
+    IN p_id_product INT,
+    IN p_id_category INT,
+    IN p_sku VARCHAR(50),
+    IN p_product_name VARCHAR(120),
+    IN p_description VARCHAR(255),
+    IN p_image_path VARCHAR(255),
+    IN p_unit_weight_kg DECIMAL(10,2),
+    IN p_unit_price DECIMAL(10,2),
+    IN p_status VARCHAR(20)
+)
+BEGIN
+    IF p_id_product IS NULL OR p_id_product <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Seleccione un producto valido.';
+    END IF;
+
+    IF p_id_category IS NULL OR p_id_category <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Seleccione una categoria valida.';
+    END IF;
+
+    IF p_sku IS NULL OR TRIM(p_sku) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El SKU es obligatorio.';
+    END IF;
+
+    IF p_product_name IS NULL OR TRIM(p_product_name) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nombre del producto es obligatorio.';
+    END IF;
+
+    UPDATE Products
+    SET id_category = p_id_category,
+        sku = TRIM(p_sku),
+        product_name = TRIM(p_product_name),
+        description = NULLIF(TRIM(p_description), ''),
+        image_path = NULLIF(TRIM(p_image_path), ''),
+        unit_weight_kg = IFNULL(p_unit_weight_kg, 0),
+        unit_price = IFNULL(p_unit_price, 0),
+        status = IF(UPPER(TRIM(p_status)) = 'INACTIVE', 'INACTIVE', 'ACTIVE')
+    WHERE id_product = p_id_product;
+END $$
+
+CREATE PROCEDURE sp_eliminar_producto(IN p_id_product INT)
+BEGIN
+    UPDATE Products
+    SET status = 'INACTIVE'
+    WHERE id_product = p_id_product;
+END $$
+
+DELIMITER ;
+
+-- =========================================================================
+-- PROCEDIMIENTOS DE REFERENCIA PARA COMBOS DE LA APLICACION
+-- SP Espinoza
+
+DELIMITER $$
+
+CREATE PROCEDURE sp_user_register(
+    IN p_username VARCHAR(50),
+    IN p_password_hash VARCHAR(255),
+    IN p_status VARCHAR(20)
+)
+BEGIN
+    IF p_username IS NULL OR TRIM(p_username) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El username es obligatorio.';
+    END IF;
+
+    IF CHAR_LENGTH(TRIM(p_username)) < 4 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El username debe tener al menos 4 caracteres.';
+    END IF;
+
+    IF p_password_hash IS NULL OR TRIM(p_password_hash) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El password_hash es obligatorio.';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM Users WHERE username = TRIM(p_username)) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nombre de usuario ya existe.';
+    END IF;
+
+    INSERT INTO Users (username, password_hash, status)
+    VALUES (
+        TRIM(p_username),
+        TRIM(p_password_hash),
+        IF(UPPER(TRIM(IFNULL(p_status, 'ACTIVE'))) = 'INACTIVE', 'INACTIVE', 'ACTIVE')
+    );
+END $$
+
+CREATE PROCEDURE sp_user_login(
+    IN p_username VARCHAR(50)
+        CHARACTER SET utf8mb4
+            COLLATE utf8mb4_unicode_ci
+)
+BEGIN
+    SELECT
+        id_user,
+        username,
+        password_hash,
+        status,
+        created_at,
+        updated_at
+    FROM Users
+    WHERE username = TRIM(p_username)
+    LIMIT 1;
+END $$
+DELIMITER $$
+CREATE PROCEDURE sp_user_search(
+    IN p_query VARCHAR(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+    IN p_status VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+)
+BEGIN
+    SELECT
+        id_user,
+        username,
+        password_hash,
+        status,
+        created_at,
+        updated_at
+    FROM Users
+    WHERE (
+            p_query IS NULL
+            OR TRIM(p_query) = ''
+            OR (
+                TRIM(p_query) REGEXP '^[0-9]+$'
+                AND id_user = CAST(TRIM(p_query) AS UNSIGNED)
+            )
+            OR username LIKE CONCAT('%', TRIM(p_query), '%')
+        )
+      AND (
+            p_status IS NULL
+            OR TRIM(p_status) = ''
+            OR UPPER(TRIM(p_status)) = 'ALL'
+            OR status = UPPER(TRIM(p_status))
+        )
+    ORDER BY created_at DESC, id_user DESC;
+END $$
+DELIMITER ;
+CREATE PROCEDURE sp_user_find_by_id(
+    IN p_id_user INT
+)
+BEGIN
+    SELECT
+        id_user,
+        username,
+        password_hash,
+        status,
+        created_at,
+        updated_at
+    FROM Users
+    WHERE id_user = p_id_user
+    LIMIT 1;
+END $$
+
+CREATE PROCEDURE sp_user_update(
+    IN p_id_user INT,
+    IN p_username VARCHAR(50),
+    IN p_password_hash VARCHAR(255),
+    IN p_status VARCHAR(20)
+)
+BEGIN
+    IF p_id_user IS NULL OR p_id_user <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Seleccione un usuario valido.';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM Users WHERE id_user = p_id_user) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El usuario no existe.';
+    END IF;
+
+    IF p_username IS NULL OR TRIM(p_username) = '' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El username es obligatorio.';
+    END IF;
+
+    IF CHAR_LENGTH(TRIM(p_username)) < 4 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El username debe tener al menos 4 caracteres.';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM Users
+        WHERE username = TRIM(p_username)
+          AND id_user <> p_id_user
+    ) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El nombre de usuario ya existe.';
+    END IF;
+
+    UPDATE Users
+    SET username = TRIM(p_username),
+        password_hash = IF(
+            p_password_hash IS NULL OR TRIM(p_password_hash) = '',
+            password_hash,
+            TRIM(p_password_hash)
+        ),
+        status = IF(UPPER(TRIM(IFNULL(p_status, 'ACTIVE'))) = 'INACTIVE', 'INACTIVE', 'ACTIVE')
+    WHERE id_user = p_id_user;
+END $$
+
+CREATE PROCEDURE sp_user_delete(
+    IN p_id_user INT
+)
+BEGIN
+    IF p_id_user IS NULL OR p_id_user <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Seleccione un usuario valido.';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM Users WHERE id_user = p_id_user) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El usuario no existe.';
+    END IF;
+
+    UPDATE Users
+    SET status = 'INACTIVE'
+    WHERE id_user = p_id_user;
+END $$
+
+DELIMITER ;
+
+-- SP Logout
+
+DELIMITER $$
+CREATE PROCEDURE sp_user_logout(
+    IN p_id_user INT
+)
+BEGIN
+    IF p_id_user IS NULL OR p_id_user <= 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El usuario para cerrar sesion no es valido.';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM Users
+        WHERE id_user = p_id_user
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El usuario indicado no existe.';
+    END IF;
+
+    UPDATE Users
+    SET updated_at = CURRENT_TIMESTAMP
+    WHERE id_user = p_id_user;
+END $$
+DELIMITER ;
+
+-- MEJORA
+
+DELIMITER $$
+-- =========================================================================
+-- 5. BUSCAR ALMACENES CON RESUMEN DE PRODUCTOS Y STOCK
+-- =========================================================================
+CREATE PROCEDURE sp_warehouse_search_with_summary(
+    IN p_query VARCHAR(100),
+    IN p_status ENUM('ACTIVE', 'INACTIVE')
+)
+BEGIN
+    SELECT
+        w.id_warehouse,
+        w.warehouse_name,
+        w.address,
+        w.city,
+        w.country,
+        w.phone,
+        w.status,
+        w.created_at,
+        w.updated_at,
+        COUNT(DISTINCT i.id_product) AS product_count,
+        COALESCE(SUM(i.stock), 0) AS total_stock,
+        COALESCE(SUM(i.reserved_stock), 0) AS reserved_stock,
+        COALESCE(SUM(i.stock - i.reserved_stock), 0) AS available_stock
+    FROM Warehouses w
+    LEFT JOIN Inventory i ON i.id_warehouse = w.id_warehouse
+    WHERE w.status = p_status
+      AND (
+            p_query IS NULL
+            OR TRIM(p_query) = ''
+            OR (p_query REGEXP '^[0-9]+$' AND w.id_warehouse = CAST(p_query AS SIGNED))
+            OR w.warehouse_name LIKE CONCAT('%', TRIM(p_query), '%')
+            OR w.city LIKE CONCAT('%', TRIM(p_query), '%')
+            OR w.country LIKE CONCAT('%', TRIM(p_query), '%')
+          )
+    GROUP BY
+        w.id_warehouse,
+        w.warehouse_name,
+        w.address,
+        w.city,
+        w.country,
+        w.phone,
+        w.status,
+        w.created_at,
+        w.updated_at
+    ORDER BY w.warehouse_name, w.city;
+END $$
+
+-- =========================================================================
+-- 6. DETALLE DE INVENTARIO POR ALMACEN
+-- =========================================================================
+CREATE PROCEDURE sp_warehouse_inventory_detail(
+    IN p_id_warehouse INT
+)
+BEGIN
+    IF p_id_warehouse IS NULL OR p_id_warehouse <= 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El almacen seleccionado no es valido.';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM Warehouses
+        WHERE id_warehouse = p_id_warehouse
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El almacen seleccionado no existe.';
+    END IF;
+
+    SELECT
+        i.id_inventory,
+        i.id_warehouse,
+        i.id_product,
+        i.stock,
+        i.reserved_stock,
+        i.min_stock,
+        w.warehouse_name,
+        p.sku,
+        p.product_name
+    FROM Inventory i
+    INNER JOIN Warehouses w ON w.id_warehouse = i.id_warehouse
+    INNER JOIN Products p ON p.id_product = i.id_product
+    WHERE i.id_warehouse = p_id_warehouse
+    ORDER BY p.product_name, p.sku;
 END $$
 
 DELIMITER ;
