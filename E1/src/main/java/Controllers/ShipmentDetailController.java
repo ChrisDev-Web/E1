@@ -128,6 +128,18 @@ public class ShipmentDetailController {
         }
     }
 
+    public List<ReferenceItem> listProductOptionsByShipment(int idShipment) throws Exception {
+        if (idShipment <= 0) {
+            throw new Exception("Seleccione un envio valido.");
+        }
+
+        try {
+            return referenceDataRepository.listProductsByShipment(idShipment);
+        } catch (SQLException e) {
+            throw new Exception(getSqlMessage(e));
+        }
+    }
+
     private void validateDetail(ShipmentDetail detail) throws Exception {
         if (detail == null) {
             throw new Exception("Ingrese los datos del detalle de envio.");

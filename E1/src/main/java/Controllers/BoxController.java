@@ -113,7 +113,7 @@ public class BoxController {
             throw new Exception("Seleccione un envio valido.");
         }
 
-        if (box.getBoxCode() == null || box.getBoxCode().trim().isEmpty()) {
+        if (box.getIdBox() > 0 && (box.getBoxCode() == null || box.getBoxCode().trim().isEmpty())) {
             throw new Exception("Ingrese el codigo de la caja.");
         }
 

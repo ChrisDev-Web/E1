@@ -13,7 +13,7 @@ public class Database {
     private static final Properties PROPERTIES = loadProperties();
 
     private static final String DRIVER = resolveConfig("DB_DRIVER", "db.driver", "com.mysql.cj.jdbc.Driver");
-    private static final String URL = resolveConfig("DB_URL", "db.url", "jdbc:mysql://localhost:3306/Logistics2?useSSL=false&serverTimezone=America/Lima");
+    private static final String URL = resolveConfig("DB_URL", "db.url", "jdbc:mysql://localhost:3306/Logistics3?useSSL=false&serverTimezone=America/Lima");
     private static final String USER = resolveConfig("DB_USER", "db.user", "root");
     private static final String PASSWORD = resolveConfig("DB_PASSWORD", "db.password", "123456");
 

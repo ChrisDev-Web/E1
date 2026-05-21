@@ -62,6 +62,7 @@ public final class MenuNavigator {
         if (view != null) {
             currentViewKey = viewKey;
             cardLayout.show(contentPanel, viewKey);
+            view.onViewShown();
             contentPanel.revalidate();
             contentPanel.repaint();
         }

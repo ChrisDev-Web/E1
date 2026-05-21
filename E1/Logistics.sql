@@ -537,6 +537,18 @@ CREATE PROCEDURE sp_shipment_create(
     IN p_changed_by_user_id INT
 )
 BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Clients WHERE id_client = p_id_client) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Seleccione un cliente valido para el envio.';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM Warehouses WHERE id_warehouse = p_id_warehouse_origin AND status IN ('ACTIVE', 'active')) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Seleccione un almacen de origen activo.';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM Users WHERE id_user = p_id_user AND status = 'ACTIVE') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Seleccione un usuario responsable activo.';
+    END IF;
+
     INSERT INTO Shipments (
         tracking_code,
         id_client,
@@ -571,8 +583,35 @@ CREATE PROCEDURE sp_shipment_update(
     IN p_changed_by_user_id INT
 )
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Shipments WHERE id_shipment = p_id_shipment) THEN
+    DECLARE v_current_status VARCHAR(20);
+    DECLARE v_current_warehouse INT;
+    DECLARE v_detail_count INT DEFAULT 0;
+
+    SELECT status, id_warehouse_origin
+      INTO v_current_status, v_current_warehouse
+    FROM Shipments
+    WHERE id_shipment = p_id_shipment
+    LIMIT 1;
+
+    IF v_current_status IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El envio indicado no existe.';
+    END IF;
+
+    IF v_current_status IN ('DELIVERED', 'CANCELLED') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No se puede editar un envio entregado o cancelado.';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM Warehouses WHERE id_warehouse = p_id_warehouse_origin AND status IN ('ACTIVE', 'active')) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Seleccione un almacen de origen activo.';
+    END IF;
+
+    SELECT COUNT(*)
+      INTO v_detail_count
+    FROM ShipmentDetails
+    WHERE id_shipment = p_id_shipment;
+
+    IF v_detail_count > 0 AND p_id_warehouse_origin <> v_current_warehouse THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No se puede cambiar el almacen de origen porque el envio ya tiene productos reservados.';
     END IF;
 
     UPDATE Shipments
@@ -600,13 +639,47 @@ CREATE PROCEDURE sp_shipment_update_status(
     IN p_comments VARCHAR(255)
 )
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Shipments WHERE id_shipment = p_id_shipment) THEN
+    DECLARE v_current_status VARCHAR(20);
+    DECLARE v_detail_count INT DEFAULT 0;
+
+    SELECT status
+      INTO v_current_status
+    FROM Shipments
+    WHERE id_shipment = p_id_shipment
+    LIMIT 1;
+
+    IF v_current_status IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El envio indicado no existe.';
+    END IF;
+
+    IF v_current_status IN ('DELIVERED', 'CANCELLED') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No se puede cambiar el estado de un envio finalizado.';
+    END IF;
+
+    IF p_status IS NULL OR p_status NOT IN ('PENDING', 'PREPARING', 'SHIPPED', 'IN_TRANSIT') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Use las operaciones especificas para entregar o cancelar el envio.';
+    END IF;
+
+    IF p_status IN ('SHIPPED', 'IN_TRANSIT') THEN
+        SELECT COUNT(*)
+          INTO v_detail_count
+        FROM ShipmentDetails
+        WHERE id_shipment = p_id_shipment;
+
+        IF v_detail_count = 0 THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El envio debe tener al menos un producto antes de avanzar a SHIPPED o IN_TRANSIT.';
+        END IF;
     END IF;
 
     UPDATE Shipments
     SET status = p_status
     WHERE id_shipment = p_id_shipment;
+
+    IF p_status IN ('SHIPPED', 'IN_TRANSIT') THEN
+        UPDATE Boxes
+        SET status = p_status
+        WHERE id_shipment = p_id_shipment;
+    END IF;
 
     CALL sp_shipment_tracking_register(
         p_id_shipment,
@@ -624,6 +697,26 @@ CREATE PROCEDURE sp_shipment_mark_delivered(
     IN p_comments VARCHAR(255)
 )
 BEGIN
+    DECLARE v_current_status VARCHAR(20);
+    DECLARE v_id_warehouse_origin INT;
+    DECLARE v_total_details INT DEFAULT 0;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SELECT status, id_warehouse_origin
+      INTO v_current_status, v_id_warehouse_origin
+    FROM Shipments
+    WHERE id_shipment = p_id_shipment
+    LIMIT 1;
+
+    IF v_current_status IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El envio indicado no existe.';
+    END IF;
+
     IF EXISTS (
         SELECT 1
         FROM Shipments
@@ -642,10 +735,54 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No se puede entregar un envio cancelado.';
     END IF;
 
+    SELECT COUNT(*)
+      INTO v_total_details
+    FROM ShipmentDetails
+    WHERE id_shipment = p_id_shipment;
+
+    IF v_total_details = 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No se puede entregar un envio sin productos.';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM (
+            SELECT sd.id_product, SUM(sd.quantity) AS total_quantity
+            FROM ShipmentDetails sd
+            WHERE sd.id_shipment = p_id_shipment
+            GROUP BY sd.id_product
+        ) d
+        INNER JOIN Inventory i
+                ON i.id_warehouse = v_id_warehouse_origin
+               AND i.id_product = d.id_product
+        WHERE i.stock < d.total_quantity
+           OR i.reserved_stock < d.total_quantity
+    ) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El inventario reservado del envio no es suficiente para completar la entrega.';
+    END IF;
+
+    START TRANSACTION;
+
+    UPDATE Inventory i
+    INNER JOIN (
+        SELECT sd.id_product, SUM(sd.quantity) AS total_quantity
+        FROM ShipmentDetails sd
+        WHERE sd.id_shipment = p_id_shipment
+        GROUP BY sd.id_product
+    ) d
+            ON i.id_warehouse = v_id_warehouse_origin
+           AND i.id_product = d.id_product
+    SET i.stock = i.stock - d.total_quantity,
+        i.reserved_stock = GREATEST(i.reserved_stock - d.total_quantity, 0);
+
     UPDATE Shipments
     SET
         status = 'DELIVERED',
         delivered_at = NOW()
+    WHERE id_shipment = p_id_shipment;
+
+    UPDATE Boxes
+    SET status = 'DELIVERED'
     WHERE id_shipment = p_id_shipment;
 
     CALL sp_shipment_tracking_register(
@@ -655,6 +792,8 @@ BEGIN
         COALESCE(NULLIF(TRIM(p_location), ''), 'Sistema'),
         COALESCE(NULLIF(TRIM(p_comments), ''), 'Envio marcado como entregado.')
     );
+
+    COMMIT;
 END $$
 
 CREATE PROCEDURE sp_shipment_cancel(
@@ -664,6 +803,29 @@ CREATE PROCEDURE sp_shipment_cancel(
     IN p_comments VARCHAR(255)
 )
 BEGIN
+    DECLARE v_current_status VARCHAR(20);
+    DECLARE v_id_warehouse_origin INT;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SELECT status, id_warehouse_origin
+      INTO v_current_status, v_id_warehouse_origin
+    FROM Shipments
+    WHERE id_shipment = p_id_shipment
+    LIMIT 1;
+
+    IF v_current_status IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El envio indicado no existe.';
+    END IF;
+
+    IF v_current_status = 'CANCELLED' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El envio ya fue cancelado.';
+    END IF;
+
     IF EXISTS (
         SELECT 1
         FROM Shipments
@@ -672,6 +834,19 @@ BEGIN
     ) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No se puede cancelar un envio ya entregado.';
     END IF;
+
+    START TRANSACTION;
+
+    UPDATE Inventory i
+    INNER JOIN (
+        SELECT sd.id_product, SUM(sd.quantity) AS total_quantity
+        FROM ShipmentDetails sd
+        WHERE sd.id_shipment = p_id_shipment
+        GROUP BY sd.id_product
+    ) d
+            ON i.id_warehouse = v_id_warehouse_origin
+           AND i.id_product = d.id_product
+    SET i.reserved_stock = GREATEST(i.reserved_stock - d.total_quantity, 0);
 
     UPDATE Shipments
     SET status = 'CANCELLED'
@@ -684,6 +859,8 @@ BEGIN
         COALESCE(NULLIF(TRIM(p_location), ''), 'Sistema'),
         COALESCE(NULLIF(TRIM(p_comments), ''), 'Envio cancelado.')
     );
+
+    COMMIT;
 END $$
 
 CREATE PROCEDURE sp_shipment_get_by_id(IN p_id_shipment INT)
@@ -896,14 +1073,58 @@ CREATE PROCEDURE sp_box_create(
     IN p_status VARCHAR(20)
 )
 BEGIN
+    DECLARE v_shipment_status VARCHAR(20);
+    DECLARE v_box_code VARCHAR(50);
+    DECLARE v_sequence INT DEFAULT 0;
+
+    SELECT status
+      INTO v_shipment_status
+    FROM Shipments
+    WHERE id_shipment = p_id_shipment
+    LIMIT 1;
+
+    IF v_shipment_status IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Seleccione un envio valido para registrar la caja.';
+    END IF;
+
+    IF v_shipment_status IN ('DELIVERED', 'CANCELLED') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No se pueden registrar cajas en un envio entregado o cancelado.';
+    END IF;
+
+    IF p_length_cm IS NULL OR p_length_cm <= 0
+       OR p_width_cm IS NULL OR p_width_cm <= 0
+       OR p_height_cm IS NULL OR p_height_cm <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Las dimensiones de la caja deben ser mayores que cero.';
+    END IF;
+
+    IF p_weight_kg IS NULL OR p_weight_kg < 0 OR p_declared_value IS NULL OR p_declared_value < 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El peso y el valor declarado no pueden ser negativos.';
+    END IF;
+
+    SET v_box_code = NULLIF(TRIM(p_box_code), '');
+
+    IF v_box_code IS NULL THEN
+        SELECT COUNT(*) + 1
+          INTO v_sequence
+        FROM Boxes
+        WHERE id_shipment = p_id_shipment;
+
+        SET v_box_code = CONCAT('BOX-', LPAD(p_id_shipment, 6, '0'), '-', LPAD(v_sequence, 4, '0'));
+
+        WHILE EXISTS (SELECT 1 FROM Boxes WHERE box_code = v_box_code) DO
+            SET v_sequence = v_sequence + 1;
+            SET v_box_code = CONCAT('BOX-', LPAD(p_id_shipment, 6, '0'), '-', LPAD(v_sequence, 4, '0'));
+        END WHILE;
+    END IF;
+
     INSERT INTO boxes (
         id_shipment, box_code, image_path,
         length_cm, width_cm, height_cm,
         weight_kg, declared_value, status
     ) VALUES (
-        p_id_shipment, p_box_code, NULLIF(p_image_path, ''),
+        p_id_shipment, v_box_code, NULLIF(p_image_path, ''),
         p_length_cm, p_width_cm, p_height_cm,
-        p_weight_kg, p_declared_value, p_status
+        p_weight_kg, p_declared_value, COALESCE(NULLIF(TRIM(p_status), ''), 'PACKED')
     );
 END$$
 
@@ -942,24 +1163,101 @@ CREATE PROCEDURE sp_box_update(
     IN p_status VARCHAR(20)
 )
 BEGIN
+    DECLARE v_current_shipment INT;
+    DECLARE v_current_code VARCHAR(50);
+    DECLARE v_shipment_status VARCHAR(20);
+
+    SELECT id_shipment, box_code
+      INTO v_current_shipment, v_current_code
+    FROM Boxes
+    WHERE id_box = p_id_box
+    LIMIT 1;
+
+    IF v_current_shipment IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La caja indicada no existe.';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM ShipmentDetails
+        WHERE id_box = p_id_box
+          AND p_id_shipment <> v_current_shipment
+    ) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No se puede mover la caja a otro envio porque ya contiene productos.';
+    END IF;
+
+    SELECT status
+      INTO v_shipment_status
+    FROM Shipments
+    WHERE id_shipment = p_id_shipment
+    LIMIT 1;
+
+    IF v_shipment_status IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Seleccione un envio valido para la caja.';
+    END IF;
+
+    IF v_shipment_status IN ('DELIVERED', 'CANCELLED') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No se puede editar una caja de un envio entregado o cancelado.';
+    END IF;
+
     UPDATE boxes
     SET
         id_shipment = p_id_shipment,
-        box_code = p_box_code,
+        box_code = COALESCE(NULLIF(TRIM(p_box_code), ''), v_current_code),
         image_path = NULLIF(p_image_path, ''),
         length_cm = p_length_cm,
         width_cm = p_width_cm,
         height_cm = p_height_cm,
         weight_kg = p_weight_kg,
         declared_value = p_declared_value,
-        status = p_status
+        status = COALESCE(NULLIF(TRIM(p_status), ''), status)
     WHERE id_box = p_id_box;
 END$$
 
 CREATE PROCEDURE sp_box_delete(IN p_id_box INT)
 BEGIN
+    DECLARE v_id_shipment INT;
+    DECLARE v_id_warehouse_origin INT;
+    DECLARE v_shipment_status VARCHAR(20);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    SELECT b.id_shipment, s.id_warehouse_origin, s.status
+      INTO v_id_shipment, v_id_warehouse_origin, v_shipment_status
+    FROM Boxes b
+    INNER JOIN Shipments s ON s.id_shipment = b.id_shipment
+    WHERE b.id_box = p_id_box
+    LIMIT 1;
+
+    IF v_id_shipment IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La caja indicada no existe.';
+    END IF;
+
+    IF v_shipment_status NOT IN ('PENDING', 'PREPARING') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Solo se pueden eliminar cajas de envios en estado PENDING o PREPARING.';
+    END IF;
+
+    START TRANSACTION;
+
+    UPDATE Inventory i
+    INNER JOIN (
+        SELECT sd.id_product, SUM(sd.quantity) AS total_quantity
+        FROM ShipmentDetails sd
+        WHERE sd.id_box = p_id_box
+        GROUP BY sd.id_product
+    ) d
+            ON i.id_warehouse = v_id_warehouse_origin
+           AND i.id_product = d.id_product
+    SET i.reserved_stock = GREATEST(i.reserved_stock - d.total_quantity, 0);
+
     DELETE FROM boxes
     WHERE id_box = p_id_box;
+
+    COMMIT;
 END$$
 
 CREATE PROCEDURE sp_shipment_detail_create(
@@ -970,11 +1268,103 @@ CREATE PROCEDURE sp_shipment_detail_create(
     IN p_unit_weight_kg DECIMAL(10,2)
 )
 BEGIN
-    INSERT INTO shipmentdetails (
-        id_shipment, id_box, id_product, quantity, unit_weight_kg
-    ) VALUES (
-        p_id_shipment, p_id_box, p_id_product, p_quantity, p_unit_weight_kg
-    );
+    DECLARE v_id_warehouse_origin INT;
+    DECLARE v_shipment_status VARCHAR(20);
+    DECLARE v_available_stock INT DEFAULT 0;
+    DECLARE v_inventory_id INT;
+    DECLARE v_existing_detail_id INT DEFAULT NULL;
+    DECLARE v_default_unit_weight DECIMAL(10,2);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    IF p_quantity IS NULL OR p_quantity <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cantidad del detalle debe ser mayor que cero.';
+    END IF;
+
+    START TRANSACTION;
+
+    SELECT id_warehouse_origin, status
+      INTO v_id_warehouse_origin, v_shipment_status
+    FROM Shipments
+    WHERE id_shipment = p_id_shipment
+    LIMIT 1
+    FOR UPDATE;
+
+    IF v_shipment_status IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Seleccione un envio valido.';
+    END IF;
+
+    IF v_shipment_status NOT IN ('PENDING', 'PREPARING') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Solo se pueden agregar productos a envios en estado PENDING o PREPARING.';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM Boxes
+        WHERE id_box = p_id_box
+          AND id_shipment = p_id_shipment
+    ) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La caja seleccionada no pertenece al envio indicado.';
+    END IF;
+
+    SELECT unit_weight_kg
+      INTO v_default_unit_weight
+    FROM Products
+    WHERE id_product = p_id_product
+      AND status = 'ACTIVE'
+    LIMIT 1;
+
+    IF v_default_unit_weight IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El producto seleccionado no existe o esta inactivo.';
+    END IF;
+
+    SELECT id_inventory, (stock - reserved_stock)
+      INTO v_inventory_id, v_available_stock
+    FROM Inventory
+    WHERE id_warehouse = v_id_warehouse_origin
+      AND id_product = p_id_product
+    LIMIT 1
+    FOR UPDATE;
+
+    IF v_inventory_id IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El producto seleccionado no tiene inventario registrado en el almacen de origen del envio.';
+    END IF;
+
+    IF p_quantity > v_available_stock THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cantidad solicitada supera el stock disponible del producto en el almacen de origen.';
+    END IF;
+
+    SELECT id_shipment_detail
+      INTO v_existing_detail_id
+    FROM ShipmentDetails
+    WHERE id_shipment = p_id_shipment
+      AND id_box = p_id_box
+      AND id_product = p_id_product
+    LIMIT 1
+    FOR UPDATE;
+
+    IF v_existing_detail_id IS NULL THEN
+        INSERT INTO shipmentdetails (
+            id_shipment, id_box, id_product, quantity, unit_weight_kg
+        ) VALUES (
+            p_id_shipment, p_id_box, p_id_product, p_quantity, COALESCE(NULLIF(p_unit_weight_kg, 0), v_default_unit_weight)
+        );
+    ELSE
+        UPDATE ShipmentDetails
+        SET quantity = quantity + p_quantity,
+            unit_weight_kg = COALESCE(NULLIF(p_unit_weight_kg, 0), v_default_unit_weight)
+        WHERE id_shipment_detail = v_existing_detail_id;
+    END IF;
+
+    UPDATE Inventory
+    SET reserved_stock = reserved_stock + p_quantity
+    WHERE id_inventory = v_inventory_id;
+
+    COMMIT;
 END$$
 
 CREATE PROCEDURE sp_shipment_detail_list()
@@ -1016,20 +1406,191 @@ CREATE PROCEDURE sp_shipment_detail_update(
     IN p_unit_weight_kg DECIMAL(10,2)
 )
 BEGIN
-    UPDATE shipmentdetails
-    SET
-        id_shipment = p_id_shipment,
-        id_box = p_id_box,
-        id_product = p_id_product,
-        quantity = p_quantity,
-        unit_weight_kg = p_unit_weight_kg
-    WHERE id_shipment_detail = p_id_shipment_detail;
+    DECLARE v_old_shipment_id INT;
+    DECLARE v_old_box_id INT;
+    DECLARE v_old_product_id INT;
+    DECLARE v_old_quantity INT;
+    DECLARE v_id_warehouse_origin INT;
+    DECLARE v_shipment_status VARCHAR(20);
+    DECLARE v_old_inventory_id INT;
+    DECLARE v_new_inventory_id INT;
+    DECLARE v_available_stock INT DEFAULT 0;
+    DECLARE v_default_unit_weight DECIMAL(10,2);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    IF p_quantity IS NULL OR p_quantity <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cantidad del detalle debe ser mayor que cero.';
+    END IF;
+
+    START TRANSACTION;
+
+    SELECT id_shipment, id_box, id_product, quantity
+      INTO v_old_shipment_id, v_old_box_id, v_old_product_id, v_old_quantity
+    FROM ShipmentDetails
+    WHERE id_shipment_detail = p_id_shipment_detail
+    LIMIT 1
+    FOR UPDATE;
+
+    IF v_old_shipment_id IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El detalle seleccionado no existe.';
+    END IF;
+
+    IF v_old_shipment_id <> p_id_shipment THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No se puede mover el detalle a otro envio.';
+    END IF;
+
+    SELECT id_warehouse_origin, status
+      INTO v_id_warehouse_origin, v_shipment_status
+    FROM Shipments
+    WHERE id_shipment = p_id_shipment
+    LIMIT 1
+    FOR UPDATE;
+
+    IF v_shipment_status NOT IN ('PENDING', 'PREPARING') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Solo se pueden editar detalles en envios en estado PENDING o PREPARING.';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM Boxes
+        WHERE id_box = p_id_box
+          AND id_shipment = p_id_shipment
+    ) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La caja seleccionada no pertenece al envio indicado.';
+    END IF;
+
+    SELECT unit_weight_kg
+      INTO v_default_unit_weight
+    FROM Products
+    WHERE id_product = p_id_product
+      AND status = 'ACTIVE'
+    LIMIT 1;
+
+    IF v_default_unit_weight IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El producto seleccionado no existe o esta inactivo.';
+    END IF;
+
+    SELECT id_inventory
+      INTO v_old_inventory_id
+    FROM Inventory
+    WHERE id_warehouse = v_id_warehouse_origin
+      AND id_product = v_old_product_id
+    LIMIT 1
+    FOR UPDATE;
+
+    IF v_old_inventory_id IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El inventario original del detalle no existe o esta inconsistente.';
+    END IF;
+
+    IF v_old_product_id = p_id_product THEN
+        SELECT id_inventory, (stock - reserved_stock + v_old_quantity)
+          INTO v_new_inventory_id, v_available_stock
+        FROM Inventory
+        WHERE id_warehouse = v_id_warehouse_origin
+          AND id_product = p_id_product
+        LIMIT 1
+        FOR UPDATE;
+
+        IF v_new_inventory_id IS NULL THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'No existe inventario valido para el producto seleccionado.';
+        END IF;
+
+        IF p_quantity > v_available_stock THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La nueva cantidad supera el stock disponible del producto en el almacen de origen.';
+        END IF;
+
+        UPDATE ShipmentDetails
+        SET id_box = p_id_box,
+            id_product = p_id_product,
+            quantity = p_quantity,
+            unit_weight_kg = COALESCE(NULLIF(p_unit_weight_kg, 0), v_default_unit_weight)
+        WHERE id_shipment_detail = p_id_shipment_detail;
+
+        UPDATE Inventory
+        SET reserved_stock = reserved_stock + (p_quantity - v_old_quantity)
+        WHERE id_inventory = v_new_inventory_id;
+    ELSE
+        SELECT id_inventory, (stock - reserved_stock)
+          INTO v_new_inventory_id, v_available_stock
+        FROM Inventory
+        WHERE id_warehouse = v_id_warehouse_origin
+          AND id_product = p_id_product
+        LIMIT 1
+        FOR UPDATE;
+
+        IF v_new_inventory_id IS NULL THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El producto nuevo no tiene inventario registrado en el almacen de origen.';
+        END IF;
+
+        IF p_quantity > v_available_stock THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La nueva cantidad supera el stock disponible del producto seleccionado.';
+        END IF;
+
+        UPDATE Inventory
+        SET reserved_stock = GREATEST(reserved_stock - v_old_quantity, 0)
+        WHERE id_inventory = v_old_inventory_id;
+
+        UPDATE Inventory
+        SET reserved_stock = reserved_stock + p_quantity
+        WHERE id_inventory = v_new_inventory_id;
+
+        UPDATE ShipmentDetails
+        SET id_box = p_id_box,
+            id_product = p_id_product,
+            quantity = p_quantity,
+            unit_weight_kg = COALESCE(NULLIF(p_unit_weight_kg, 0), v_default_unit_weight)
+        WHERE id_shipment_detail = p_id_shipment_detail;
+    END IF;
+
+    COMMIT;
 END$$
 
 CREATE PROCEDURE sp_shipment_detail_delete(IN p_id_shipment_detail INT)
 BEGIN
+    DECLARE v_id_shipment INT;
+    DECLARE v_id_product INT;
+    DECLARE v_quantity INT;
+    DECLARE v_id_warehouse_origin INT;
+    DECLARE v_shipment_status VARCHAR(20);
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    SELECT sd.id_shipment, sd.id_product, sd.quantity, s.id_warehouse_origin, s.status
+      INTO v_id_shipment, v_id_product, v_quantity, v_id_warehouse_origin, v_shipment_status
+    FROM ShipmentDetails sd
+    INNER JOIN Shipments s ON s.id_shipment = sd.id_shipment
+    WHERE sd.id_shipment_detail = p_id_shipment_detail
+    LIMIT 1
+    FOR UPDATE;
+
+    IF v_id_shipment IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El detalle seleccionado no existe.';
+    END IF;
+
+    IF v_shipment_status NOT IN ('PENDING', 'PREPARING') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Solo se pueden eliminar detalles de envios en estado PENDING o PREPARING.';
+    END IF;
+
+    UPDATE Inventory
+    SET reserved_stock = GREATEST(reserved_stock - v_quantity, 0)
+    WHERE id_warehouse = v_id_warehouse_origin
+      AND id_product = v_id_product;
+
     DELETE FROM shipmentdetails
     WHERE id_shipment_detail = p_id_shipment_detail;
+
+    COMMIT;
 END$$
 
 CREATE PROCEDURE sp_shipment_tracking_create(
@@ -1388,6 +1949,39 @@ BEGIN
         CONCAT(p.sku, ' - ', p.product_name) AS label
     FROM Products p
     WHERE p.status = 'ACTIVE'
+    ORDER BY p.product_name, p.sku;
+END $$
+
+CREATE PROCEDURE sp_product_list_for_combo_by_shipment(IN p_id_shipment INT)
+BEGIN
+    SELECT
+        p.id_product AS id,
+        CONCAT(
+            p.sku,
+            ' - ',
+            p.product_name,
+            ' | Disponible: ',
+            GREATEST(i.stock - i.reserved_stock, 0),
+            ' | Peso: ',
+            ROUND(p.unit_weight_kg, 2),
+            ' kg'
+        ) AS label,
+        GREATEST(i.stock - i.reserved_stock, 0) AS available_stock,
+        p.unit_weight_kg
+    FROM Shipments s
+    INNER JOIN Inventory i ON i.id_warehouse = s.id_warehouse_origin
+    INNER JOIN Products p ON p.id_product = i.id_product
+    WHERE s.id_shipment = p_id_shipment
+      AND p.status = 'ACTIVE'
+      AND (
+            GREATEST(i.stock - i.reserved_stock, 0) > 0
+            OR EXISTS (
+                SELECT 1
+                FROM ShipmentDetails sd
+                WHERE sd.id_shipment = s.id_shipment
+                  AND sd.id_product = p.id_product
+            )
+      )
     ORDER BY p.product_name, p.sku;
 END $$
 

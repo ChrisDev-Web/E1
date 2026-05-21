@@ -16,4 +16,8 @@ public interface IViewPanel {
 
     // Interfaces: expone el icono visual de la seccion.
     Icon getViewIcon();
+
+    // Interfaces: permite refrescar datos cuando el panel vuelve a mostrarse.
+    default void onViewShown() {
+    }
 }

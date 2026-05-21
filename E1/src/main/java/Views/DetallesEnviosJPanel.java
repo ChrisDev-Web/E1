@@ -82,6 +82,11 @@ public class DetallesEnviosJPanel extends JPanel implements IViewPanel {
         return VIEW_ICON;
     }
 
+    @Override
+    public void onViewShown() {
+        loadDetails();
+    }
+
     private JPanel createHeaderPanel() {
         JPanel wrapper = new JPanel(new BorderLayout(0, 16));
         wrapper.setOpaque(false);
@@ -458,10 +463,13 @@ public class DetallesEnviosJPanel extends JPanel implements IViewPanel {
             cmbProduct = createReferenceCombo();
             txtQuantity = createInput();
             txtUnitWeightKg = createInput();
+            txtUnitWeightKg.setEditable(false);
 
             loadInitialReferences();
             loadBoxesForSelectedShipment();
-            cmbShipment.addActionListener(e -> loadBoxesForSelectedShipment());
+            loadProductsForSelectedShipment();
+            cmbShipment.addActionListener(e -> handleShipmentSelectionChanged());
+            cmbProduct.addActionListener(e -> applySelectedProductDefaults());
 
             JPanel bodyPanel = new JPanel(new BorderLayout(0, 16));
             bodyPanel.setOpaque(false);
@@ -556,7 +564,6 @@ public class DetallesEnviosJPanel extends JPanel implements IViewPanel {
         private void loadInitialReferences() {
             try {
                 loadReferenceModel(cmbShipment, detailController.listShipmentOptions());
-                loadReferenceModel(cmbProduct, detailController.listProductOptions());
             } catch (Exception e) {
                 AppMessageDialog.showError(this, "Detalles de Envios", e.getMessage());
             }
@@ -583,6 +590,7 @@ public class DetallesEnviosJPanel extends JPanel implements IViewPanel {
 
             selectReferenceItem(cmbShipment, editingDetail.getIdShipment());
             loadBoxesForSelectedShipment();
+            loadProductsForSelectedShipment();
             selectReferenceItem(cmbBox, editingDetail.getIdBox());
             selectReferenceItem(cmbProduct, editingDetail.getIdProduct());
             txtQuantity.setText(String.valueOf(editingDetail.getQuantity()));
@@ -653,6 +661,40 @@ public class DetallesEnviosJPanel extends JPanel implements IViewPanel {
             } catch (Exception e) {
                 AppMessageDialog.showError(this, "Detalles de Envios", e.getMessage());
             }
+        }
+
+        private void loadProductsForSelectedShipment() {
+            ReferenceItem shipment = (ReferenceItem) cmbShipment.getSelectedItem();
+
+            try {
+                if (shipment == null || shipment.getId() <= 0) {
+                    loadReferenceModel(cmbProduct, detailController.listProductOptions());
+                } else {
+                    loadReferenceModel(cmbProduct, detailController.listProductOptionsByShipment(shipment.getId()));
+                }
+
+                applySelectedProductDefaults();
+            } catch (Exception e) {
+                AppMessageDialog.showError(this, "Detalles de Envios", e.getMessage());
+            }
+        }
+
+        private void handleShipmentSelectionChanged() {
+            loadBoxesForSelectedShipment();
+            loadProductsForSelectedShipment();
+        }
+
+        private void applySelectedProductDefaults() {
+            ReferenceItem product = (ReferenceItem) cmbProduct.getSelectedItem();
+
+            if (product == null || product.getUnitWeightKg() == null) {
+                if (editingDetail == null) {
+                    txtUnitWeightKg.setText("");
+                }
+                return;
+            }
+
+            txtUnitWeightKg.setText(product.getUnitWeightKg().toPlainString());
         }
 
         private void selectReferenceItem(JComboBox<ReferenceItem> comboBox, int id) {

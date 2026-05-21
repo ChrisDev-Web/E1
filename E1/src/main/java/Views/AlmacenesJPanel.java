@@ -83,6 +83,11 @@ public class AlmacenesJPanel extends JPanel implements IViewPanel {
         return VIEW_ICON;
     }
 
+    @Override
+    public void onViewShown() {
+        refreshData();
+    }
+
     private JPanel createHeaderPanel() {
         JPanel wrapper = new JPanel(new BorderLayout(0, 16));
         wrapper.setOpaque(false);
@@ -212,6 +217,14 @@ public class AlmacenesJPanel extends JPanel implements IViewPanel {
     private void clearFilters() {
         txtSearch.setText("");
         loadWarehouses();
+    }
+
+    private void refreshData() {
+        if (txtSearch == null || txtSearch.getText().trim().isEmpty()) {
+            loadWarehouses();
+        } else {
+            searchWarehouses();
+        }
     }
 
     private void toggleView() {

@@ -10,6 +10,8 @@ public interface IReferenceDataRepository {
 
     List<ReferenceItem> listProducts() throws SQLException;
 
+    List<ReferenceItem> listProductsByShipment(int idShipment) throws SQLException;
+
     List<ReferenceItem> listShipments() throws SQLException;
 
     List<ReferenceItem> listUsers() throws SQLException;

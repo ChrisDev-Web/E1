@@ -28,6 +28,11 @@ public class ReferenceDataRepository implements IReferenceDataRepository {
     }
 
     @Override
+    public List<ReferenceItem> listProductsByShipment(int idShipment) throws SQLException {
+        return dao.listProductsByShipment(idShipment);
+    }
+
+    @Override
     public List<ReferenceItem> listShipments() throws SQLException {
         return dao.listShipments();
     }

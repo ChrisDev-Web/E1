@@ -85,6 +85,11 @@ public class CajasJPanel extends JPanel implements IViewPanel {
         return VIEW_ICON;
     }
 
+    @Override
+    public void onViewShown() {
+        loadBoxes();
+    }
+
     private JPanel createHeaderPanel() {
         JPanel wrapper = new JPanel(new BorderLayout(0, 16));
         wrapper.setOpaque(false);
@@ -476,6 +481,7 @@ public class CajasJPanel extends JPanel implements IViewPanel {
             cmbShipment.setPreferredSize(new Dimension(220, 34));
             loadShipmentOptions();
             txtBoxCode = createInput();
+            txtBoxCode.setEditable(false);
             txtImagePath = createInput();
             txtImagePath.setEditable(false);
             txtLengthCm = createInput();
@@ -604,6 +610,7 @@ public class CajasJPanel extends JPanel implements IViewPanel {
 
         private void fillFormIfNeeded() {
             if (editingBox == null) {
+                txtBoxCode.setText("Se genera automaticamente");
                 cmbStatus.setSelectedItem("PACKED");
                 return;
             }
@@ -624,9 +631,12 @@ public class CajasJPanel extends JPanel implements IViewPanel {
                 Box box = editingBox == null ? new Box() : editingBox;
 
                 box.setIdShipment(getSelectedReferenceId(cmbShipment, "Seleccione un envio valido."));
-                box.setBoxCode(txtBoxCode.getText().trim());
+                box.setBoxCode(editingBox == null ? null : txtBoxCode.getText().trim());
                 if (selectedImage != null) {
-                    box.setImagePath(ImageStorage.saveImage(selectedImage, "boxes", txtBoxCode.getText()));
+                    String imageCode = editingBox != null && editingBox.getBoxCode() != null && !editingBox.getBoxCode().trim().isEmpty()
+                            ? editingBox.getBoxCode().trim()
+                            : "box-" + box.getIdShipment() + "-" + System.currentTimeMillis();
+                    box.setImagePath(ImageStorage.saveImage(selectedImage, "boxes", imageCode));
                 } else if (editingBox == null) {
                     box.setImagePath("");
                 }

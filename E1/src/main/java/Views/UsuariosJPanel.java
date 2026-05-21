@@ -98,6 +98,11 @@ public class UsuariosJPanel extends JPanel implements IViewPanel {
         return VIEW_ICON;
     }
 
+    @Override
+    public void onViewShown() {
+        loadUsers();
+    }
+
     private JPanel createHeaderPanel() {
         JPanel wrapper = new JPanel(new BorderLayout(0, 16));
         wrapper.setOpaque(false);
