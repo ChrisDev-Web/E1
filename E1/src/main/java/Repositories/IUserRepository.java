@@ -4,7 +4,7 @@ import Models.User;
 import java.sql.SQLException;
 import java.util.List;
 
-public interface IUserRepository extends IRepositoryRegister<User>, IRepositoryLogin<User> {
+public interface IUserRepository extends IRepositoryRegister<User>, IRepositoryLogin<User>, IRepositoryLogout<Integer> {
 
     void update(User user) throws SQLException;
 

@@ -119,6 +119,18 @@ public class UserDAO {
         return null;
     }
 
+    public void logout(int idUser) throws SQLException {
+        String sql = "{CALL sp_user_logout(?)}";
+
+        try (
+                Connection connection = Database.getConnection();
+                CallableStatement statement = connection.prepareCall(sql)
+        ) {
+            statement.setInt(1, idUser);
+            statement.execute();
+        }
+    }
+
     private User mapUser(ResultSet resultSet) throws SQLException {
         User user = new User();
         user.setIdUser(resultSet.getInt("id_user"));

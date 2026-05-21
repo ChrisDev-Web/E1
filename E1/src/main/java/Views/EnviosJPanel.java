@@ -168,13 +168,13 @@ public class EnviosJPanel extends JPanel implements IViewPanel {
             searchFromFirstPage();
         });
 
-        JButton btnClear = createToolbarButton("Limpiar", null, new Color(96, 125, 139));
+        JButton btnClear = createToolbarButton("Limpiar", ViewIcons.build(FontAwesome.ERASER, 14, Color.WHITE), new Color(96, 125, 139));
         btnClear.addActionListener(e -> clearFilters());
 
-        JButton btnNew = createToolbarButton("Nuevo Envio", null, new Color(46, 125, 50));
+        JButton btnNew = createToolbarButton("Nuevo Envio", ViewIcons.build(FontAwesome.PLUS, 14, Color.WHITE), new Color(46, 125, 50));
         btnNew.addActionListener(e -> openShipmentForm(null));
 
-        JButton btnTracking = createToolbarButton("Buscar Tracking", null, new Color(2, 136, 209));
+        JButton btnTracking = createToolbarButton("Buscar Tracking", ViewIcons.build(FontAwesome.SEARCH, 14, Color.WHITE), new Color(2, 136, 209));
         btnTracking.addActionListener(e -> searchByTrackingCode());
 
         toolbarCard.add(new JLabel("Buscar:"));

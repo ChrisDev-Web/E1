@@ -28,6 +28,11 @@ public class UserRepository implements IUserRepository {
     }
 
     @Override
+    public void logout(Integer id) throws SQLException {
+        userDAO.logout(id);
+    }
+
+    @Override
     public void update(User user) throws SQLException {
         userDAO.update(user);
     }

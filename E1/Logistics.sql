@@ -242,6 +242,29 @@ BEGIN
     LIMIT 1;
 END $$
 
+CREATE PROCEDURE sp_user_logout(
+    IN p_id_user INT
+)
+BEGIN
+    IF p_id_user IS NULL OR p_id_user <= 0 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El usuario para cerrar sesion no es valido.';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM Users
+        WHERE id_user = p_id_user
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El usuario indicado no existe.';
+    END IF;
+
+    UPDATE Users
+    SET updated_at = CURRENT_TIMESTAMP
+    WHERE id_user = p_id_user;
+END $$
+
 DELIMITER ;
 
 -- SP Neil

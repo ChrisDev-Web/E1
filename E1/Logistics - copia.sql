@@ -194,61 +194,6 @@ CREATE TABLE ShipmentTracking (
         ON DELETE SET NULL
 );
 
--- SP Espinoza
-
-DELIMITER $$
-
-CREATE PROCEDURE sp_user_register(
-    IN p_username VARCHAR(50),
-    IN p_password_hash VARCHAR(255)
-)
-BEGIN
-    IF p_username IS NULL OR TRIM(p_username) = '' THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'El username es obligatorio.';
-    END IF;
-
-    IF p_password_hash IS NULL OR TRIM(p_password_hash) = '' THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'El password_hash es obligatorio.';
-    END IF;
-
-    IF EXISTS (
-        SELECT 1
-        FROM Users
-        WHERE username = TRIM(p_username)
-    ) THEN
-        SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'El nombre de usuario ya existe.';
-    END IF;
-
-    INSERT INTO Users (
-        username,
-        password_hash
-    )
-    VALUES (
-        TRIM(p_username),
-        TRIM(p_password_hash)
-    );
-END $$
-
-CREATE PROCEDURE sp_user_login(
-    IN p_username VARCHAR(50)
-)
-BEGIN
-    SELECT
-        id_user,
-        username,
-        password_hash,
-        created_at,
-        updated_at
-    FROM Users
-    WHERE username = TRIM(p_username)
-    LIMIT 1;
-END $$
-
-DELIMITER ;
-
 -- SP Neil
 
 DELIMITER $$
@@ -278,24 +223,6 @@ BEGIN
     FROM Clients c
     WHERE c.deleted_at IS NULL
     ORDER BY c.name, c.last_name_paternal, c.last_name_maternal;
-END $$
-
-CREATE PROCEDURE sp_warehouse_list_for_combo()
-BEGIN
-    SELECT
-        w.id_warehouse AS id,
-        CONCAT('Almacen ', w.id_warehouse) AS label
-    FROM Warehouses w
-    ORDER BY label;
-END $$
-
-CREATE PROCEDURE sp_user_list_for_combo()
-BEGIN
-    SELECT
-        u.id_user AS id,
-        u.username AS label
-    FROM Users u
-    ORDER BY u.username;
 END $$
 
 CREATE PROCEDURE sp_client_create(
@@ -1688,71 +1615,6 @@ DELIMITER ;
 
 -- =========================================================================
 -- PROCEDIMIENTOS DE REFERENCIA PARA COMBOS DE LA APLICACION
--- Estos SP evitan que el usuario escriba IDs manualmente en la interfaz.
--- =========================================================================
-
-DELIMITER $$
-
-CREATE PROCEDURE sp_warehouse_list_for_combo()
-BEGIN
-    SELECT
-        w.id_warehouse AS id,
-        CONCAT(w.warehouse_name, ' - ', w.city) AS label
-    FROM Warehouses w
-    ORDER BY w.warehouse_name, w.city;
-END $$
-
-CREATE PROCEDURE sp_user_list_for_combo()
-BEGIN
-    SELECT
-        u.id_user AS id,
-        u.username AS label
-    FROM Users u
-    ORDER BY u.username;
-END $$
-
-CREATE PROCEDURE sp_product_list_for_combo()
-BEGIN
-    SELECT
-        p.id_product AS id,
-        CONCAT(p.sku, ' - ', p.product_name) AS label
-    FROM Products p
-    WHERE p.status = 'ACTIVE'
-    ORDER BY p.product_name, p.sku;
-END $$
-
-CREATE PROCEDURE sp_shipment_list_for_combo()
-BEGIN
-    SELECT
-        s.id_shipment AS id,
-        CONCAT(s.tracking_code, ' - ', s.status) AS label
-    FROM Shipments s
-    ORDER BY s.shipment_date DESC, s.id_shipment DESC;
-END $$
-
-CREATE PROCEDURE sp_box_list_for_combo()
-BEGIN
-    SELECT
-        b.id_box AS id,
-        CONCAT(b.box_code, ' - ', s.tracking_code) AS label
-    FROM Boxes b
-    INNER JOIN Shipments s ON s.id_shipment = b.id_shipment
-    INNER JOIN Shipments s ON s.id_shipment = b.id_shipment
-    ORDER BY s.shipment_date DESC, b.box_code;
-END $$
-
-CREATE PROCEDURE sp_box_list_for_combo_by_shipment(IN p_id_shipment INT)
-BEGIN
-    SELECT
-        b.id_box AS id,
-        b.box_code AS label
-    FROM Boxes b
-    WHERE b.id_shipment = p_id_shipment
-    ORDER BY b.box_code;
-END $$
-
-DELIMITER ;
-
 -- SP Espinoza
 
 DELIMITER $$

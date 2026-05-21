@@ -125,13 +125,13 @@ public class CajasJPanel extends JPanel implements IViewPanel {
         });
         cmbStatusFilter.setPreferredSize(new Dimension(160, 34));
 
-        JButton btnClear = createToolbarButton("Limpiar", new Color(96, 125, 139));
+        JButton btnClear = createToolbarButton("Limpiar", ViewIcons.build(FontAwesome.ERASER, 14, Color.WHITE), new Color(96, 125, 139));
         btnClear.addActionListener(e -> clearFilters());
 
-        JButton btnNew = createToolbarButton("Nueva Caja", new Color(46, 125, 50));
+        JButton btnNew = createToolbarButton("Nueva Caja", ViewIcons.build(FontAwesome.PLUS, 14, Color.WHITE), new Color(46, 125, 50));
         btnNew.addActionListener(e -> openBoxForm(null));
 
-        JButton btnRefresh = createToolbarButton("Actualizar Lista", new Color(2, 136, 209));
+        JButton btnRefresh = createToolbarButton("Actualizar Lista", ViewIcons.build(FontAwesome.REFRESH, 14, Color.WHITE), new Color(2, 136, 209));
         btnRefresh.addActionListener(e -> loadBoxes());
 
         toolbarCard.add(new JLabel("Buscar:"));
@@ -186,7 +186,11 @@ public class CajasJPanel extends JPanel implements IViewPanel {
     }
 
     private JButton createToolbarButton(String text, Color color) {
-        JButton button = new JButton(text);
+        return createToolbarButton(text, null, color);
+    }
+
+    private JButton createToolbarButton(String text, Icon icon, Color color) {
+        JButton button = new JButton(text, icon);
         button.setFocusPainted(false);
         button.setBackground(color);
         button.setForeground(Color.WHITE);

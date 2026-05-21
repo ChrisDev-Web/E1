@@ -1,8 +1,10 @@
 package Views;
 
+import Controllers.UserController;
 import Models.User;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -13,10 +15,12 @@ import java.util.Map;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
 import javax.swing.Timer;
+import jiconfont.icons.font_awesome.FontAwesome;
 
 // Swing + Herencia: vista principal que se abre luego del login.
 public class MenuJFrame extends BaseFrame {
@@ -27,12 +31,14 @@ public class MenuJFrame extends BaseFrame {
     private final User user;
     // Singleton + Swing: administra la navegacion interna por paneles.
     private final MenuNavigator navigator;
+    private final UserController userController;
 
     private final Map<String, JButton> navigationButtons = new LinkedHashMap<>();
 
     private JLabel lblWelcome;
     private JLabel lblClock;
     private JLabel lblCurrentSection;
+    private JButton btnLogout;
     private Timer clockTimer;
 
     private final Color backgroundColor = new Color(245, 247, 250);
@@ -47,6 +53,7 @@ public class MenuJFrame extends BaseFrame {
     public MenuJFrame(User user) {
         this.user = user;
         this.navigator = MenuNavigator.getInstance();
+        this.userController = new UserController();
         UserSession.getInstance().startSession(user);
         initUI();
         configureWindow();
@@ -121,7 +128,18 @@ public class MenuJFrame extends BaseFrame {
         textInfoPanel.add(lblCurrentSection, BorderLayout.CENTER);
         textInfoPanel.add(lblClock, BorderLayout.SOUTH);
 
-        infoPanel.add(textInfoPanel, BorderLayout.EAST);
+        btnLogout = createLogoutButton();
+
+        JPanel rightPanel = new JPanel(new BorderLayout(0, 12));
+        rightPanel.setOpaque(false);
+        rightPanel.add(textInfoPanel, BorderLayout.CENTER);
+
+        JPanel logoutPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        logoutPanel.setOpaque(false);
+        logoutPanel.add(btnLogout);
+
+        rightPanel.add(logoutPanel, BorderLayout.SOUTH);
+        infoPanel.add(rightPanel, BorderLayout.EAST);
 
         topBar.add(brandPanel, BorderLayout.WEST);
         topBar.add(infoPanel, BorderLayout.EAST);
@@ -185,6 +203,21 @@ public class MenuJFrame extends BaseFrame {
         return button;
     }
 
+    // Swing: crea el boton de cierre de sesion destacado en la cabecera.
+    private JButton createLogoutButton() {
+        JButton button = new JButton("Cerrar sesion", ViewIcons.build(FontAwesome.SIGN_OUT, 16, Color.BLACK));
+        button.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        button.setFocusPainted(false);
+        button.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
+        button.setBackground(new Color(229, 57, 53));
+        button.setForeground(Color.BLACK);
+        button.setOpaque(true);
+        button.setIconTextGap(8);
+        button.addActionListener(e -> logoutAction());
+        return button;
+    }
+
     // Swing + Singleton: registra todas las vistas vacias que usara el menu.
     private void registerViews() {
         navigator.registerView(new UsuariosJPanel());
@@ -234,6 +267,54 @@ public class MenuJFrame extends BaseFrame {
     // Swing: actualiza el texto visible del reloj.
     private void updateClockLabel() {
         lblClock.setText("Hora: " + LocalDateTime.now().format(CLOCK_FORMATTER));
+    }
+
+    // MVC + Swing: confirma el cierre de sesion, limpia la sesion local y vuelve al login.
+    private void logoutAction() {
+        User currentUser = UserSession.getInstance().getCurrentUser();
+
+        if (currentUser == null || currentUser.getIdUser() <= 0) {
+            UserSession.getInstance().clearSession();
+            stopClock();
+            openFrame(new LoginJFrame());
+            return;
+        }
+
+        int option = JOptionPane.showConfirmDialog(
+                this,
+                "Desea cerrar la sesion actual?",
+                "Cerrar sesion",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE
+        );
+
+        if (option != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        btnLogout.setEnabled(false);
+
+        try {
+            userController.logoutUser(currentUser.getIdUser());
+            UserSession.getInstance().clearSession();
+            stopClock();
+            openFrame(new LoginJFrame());
+        } catch (Exception e) {
+            AppMessageDialog.showError(
+                    this,
+                    "No se pudo cerrar la sesion",
+                    e.getMessage()
+            );
+        } finally {
+            btnLogout.setEnabled(true);
+        }
+    }
+
+    // Swing: detiene el reloj para evitar timers vivos al cerrar la ventana.
+    private void stopClock() {
+        if (clockTimer != null) {
+            clockTimer.stop();
+        }
     }
 
     // POO: obtiene el nombre a mostrar en el saludo de bienvenida.

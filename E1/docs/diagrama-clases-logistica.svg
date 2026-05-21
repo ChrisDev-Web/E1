@@ -1,0 +1,260 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2100" height="2440" viewBox="0 0 2100 2440">
+  <defs>
+    <style>
+      .bg { fill: #f5f7fb; }
+      .panel { fill: #ffffff; stroke: #d8e0ef; stroke-width: 2; rx: 20; ry: 20; }
+      .section-title { font: 700 30px 'Segoe UI', Arial, sans-serif; fill: #17324d; }
+      .title { font: 700 22px 'Segoe UI', Arial, sans-serif; fill: #ffffff; }
+      .card-title { font: 700 24px 'Segoe UI', Arial, sans-serif; fill: #17324d; }
+      .card-subtitle { font: 600 18px 'Segoe UI', Arial, sans-serif; fill: #45617d; }
+      .body { font: 17px 'Consolas', 'Courier New', monospace; fill: #26384d; }
+      .small { font: 16px 'Segoe UI', Arial, sans-serif; fill: #49627b; }
+      .link { stroke: #55728f; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .entity { fill: #eef4fb; stroke: #91abc7; stroke-width: 2; rx: 14; ry: 14; }
+      .entity-text { font: 700 18px 'Segoe UI', Arial, sans-serif; fill: #1b3d5e; }
+      .mult { font: 600 15px 'Segoe UI', Arial, sans-serif; fill: #3c5a76; }
+      .band-blue { fill: #2f6ea5; }
+      .band-green { fill: #2f8a68; }
+      .band-gold { fill: #bc7a21; }
+      .band-red { fill: #a94d4d; }
+      .band-slate { fill: #4d6175; }
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="9" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,8 L10,4 z" fill="#55728f"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="2100" height="2440"/>
+  <text x="60" y="62" class="section-title">Diagrama de clases del proyecto Logistics</text>
+  <text x="60" y="98" class="small">Basado en las tablas SQL entregadas y en las clases reales ubicadas en Models, Controllers, Repositories y DAO.</text>
+
+  <rect class="panel" x="50" y="125" width="2000" height="650"/>
+  <text x="80" y="170" class="section-title">1. Relaciones principales entre clases/tablas</text>
+
+  <rect class="entity" x="130" y="230" width="190" height="68"/>
+  <text x="225" y="272" text-anchor="middle" class="entity-text">Users / User</text>
+
+  <rect class="entity" x="130" y="360" width="220" height="68"/>
+  <text x="240" y="402" text-anchor="middle" class="entity-text">DocumentTypes</text>
+
+  <rect class="entity" x="130" y="490" width="220" height="68"/>
+  <text x="240" y="532" text-anchor="middle" class="entity-text">Categories / Category</text>
+
+  <rect class="entity" x="470" y="230" width="240" height="68"/>
+  <text x="590" y="272" text-anchor="middle" class="entity-text">Warehouses / Warehouses</text>
+
+  <rect class="entity" x="470" y="490" width="220" height="68"/>
+  <text x="580" y="532" text-anchor="middle" class="entity-text">Products / Product</text>
+
+  <rect class="entity" x="800" y="360" width="220" height="68"/>
+  <text x="910" y="402" text-anchor="middle" class="entity-text">Inventory / Inventory</text>
+
+  <rect class="entity" x="1120" y="230" width="200" height="68"/>
+  <text x="1220" y="272" text-anchor="middle" class="entity-text">Clients / Client</text>
+
+  <rect class="entity" x="1120" y="360" width="220" height="68"/>
+  <text x="1230" y="402" text-anchor="middle" class="entity-text">Shipments / Shipment</text>
+
+  <rect class="entity" x="1450" y="180" width="180" height="68"/>
+  <text x="1540" y="222" text-anchor="middle" class="entity-text">Boxes / Box</text>
+
+  <rect class="entity" x="1450" y="360" width="270" height="68"/>
+  <text x="1585" y="402" text-anchor="middle" class="entity-text">ShipmentDetails / ShipmentDetail</text>
+
+  <rect class="entity" x="1450" y="540" width="280" height="68"/>
+  <text x="1590" y="582" text-anchor="middle" class="entity-text">ShipmentTracking / ShipmentTracking</text>
+
+  <path class="link" d="M350 524 C390 524, 420 524, 470 524"/>
+  <text x="408" y="510" class="mult">1 .. *</text>
+
+  <path class="link" d="M690 524 C735 524, 760 470, 800 394"/>
+  <text x="720" y="465" class="mult">1 .. *</text>
+
+  <path class="link" d="M710 264 C755 264, 770 325, 800 394"/>
+  <text x="740" y="316" class="mult">1 .. *</text>
+
+  <path class="link" d="M350 394 C620 394, 870 264, 1120 264"/>
+  <text x="740" y="300" class="mult">1 .. *</text>
+
+  <path class="link" d="M1320 264 C1385 264, 1415 300, 1450 394"/>
+  <text x="1370" y="292" class="mult">1 .. *</text>
+
+  <path class="link" d="M320 264 C700 264, 900 394, 1120 394"/>
+  <text x="760" y="248" class="mult">1 .. *</text>
+
+  <path class="link" d="M710 264 C900 264, 980 340, 1120 394"/>
+  <text x="930" y="302" class="mult">1 .. *</text>
+
+  <path class="link" d="M1320 264 C1385 264, 1410 238, 1450 214"/>
+  <text x="1376" y="236" class="mult">1 .. *</text>
+
+  <path class="link" d="M1340 394 C1385 394, 1410 394, 1450 394"/>
+  <text x="1385" y="378" class="mult">1 .. *</text>
+
+  <path class="link" d="M1540 248 C1540 290, 1540 330, 1540 360"/>
+  <text x="1550" y="310" class="mult">1 .. *</text>
+
+  <path class="link" d="M690 524 C1030 524, 1240 488, 1450 394"/>
+  <text x="1120" y="502" class="mult">1 .. *</text>
+
+  <path class="link" d="M1230 428 C1230 490, 1370 552, 1450 574"/>
+  <text x="1330" y="520" class="mult">1 .. *</text>
+
+  <path class="link" d="M320 264 C820 264, 1120 574, 1450 574"/>
+  <text x="1010" y="560" class="mult">0..1 / *</text>
+
+  <text x="80" y="680" class="small">Lectura rapida: la seccion superior resume las asociaciones de negocio y claves foraneas. La parte inferior lista la clase principal y sus operaciones reales por tabla.</text>
+
+  <rect class="panel" x="50" y="805" width="2000" height="1580"/>
+  <text x="80" y="850" class="section-title">2. Clases y metodos encontrados en el proyecto</text>
+
+  <rect x="60" y="885" width="610" height="285" class="panel"/>
+  <rect x="60" y="885" width="610" height="44" class="band-blue"/>
+  <text x="82" y="914" class="title">Users -> Models.User</text>
+  <text x="82" y="952" class="card-subtitle">Campos clave</text>
+  <text x="82" y="980" class="body">idUser, userName, password, status, createdAt, updatedAt</text>
+  <text x="82" y="1014" class="card-subtitle">Controller: UserController</text>
+  <text x="82" y="1042" class="body">registerUser, createUser, loginUser, searchUsers</text>
+  <text x="82" y="1068" class="body">findUserById, updateUser, deleteUser</text>
+  <text x="82" y="1102" class="card-subtitle">Persistencia</text>
+  <text x="82" y="1130" class="body">IUserRepository / UserDAO:</text>
+  <text x="82" y="1156" class="body">register, update, deleteById, findById, search, login</text>
+
+  <rect x="745" y="885" width="610" height="285" class="panel"/>
+  <rect x="745" y="885" width="610" height="44" class="band-slate"/>
+  <text x="767" y="914" class="title">DocumentTypes -> sin clase dedicada</text>
+  <text x="767" y="952" class="card-subtitle">Mapeo real encontrado</text>
+  <text x="767" y="980" class="body">No existe Models.DocumentType ni DAO propio.</text>
+  <text x="767" y="1006" class="body">Se usa desde Models.Client:</text>
+  <text x="767" y="1032" class="body">idDocumentType, documentTypeName</text>
+  <text x="767" y="1066" class="card-subtitle">Funciones relacionadas</text>
+  <text x="767" y="1094" class="body">IClientRepository / ClientDAO / ClientController:</text>
+  <text x="767" y="1120" class="body">listDocumentTypes()</text>
+  <text x="767" y="1154" class="body">Se expone como Client.ReferenceItem para combos.</text>
+
+  <rect x="1430" y="885" width="610" height="285" class="panel"/>
+  <rect x="1430" y="885" width="610" height="44" class="band-green"/>
+  <text x="1452" y="914" class="title">Categories -> Models.Category</text>
+  <text x="1452" y="952" class="card-subtitle">Campos clave</text>
+  <text x="1452" y="980" class="body">idCategory, categoryName, description, imagePath</text>
+  <text x="1452" y="1014" class="card-subtitle">Controller: CategoryController</text>
+  <text x="1452" y="1042" class="body">listCategories, searchCategories</text>
+  <text x="1452" y="1068" class="body">createCategory, updateCategory, deleteCategory</text>
+  <text x="1452" y="1102" class="card-subtitle">DAO</text>
+  <text x="1452" y="1130" class="body">CategoryDAO: listar, buscar, registrar, modificar, eliminar</text>
+
+  <rect x="60" y="1210" width="610" height="285" class="panel"/>
+  <rect x="60" y="1210" width="610" height="44" class="band-green"/>
+  <text x="82" y="1239" class="title">Products -> Models.Product</text>
+  <text x="82" y="1277" class="card-subtitle">Campos clave</text>
+  <text x="82" y="1305" class="body">idProduct, idCategory, sku, productName, unitWeightKg</text>
+  <text x="82" y="1331" class="body">unitPrice, status, createdAt, updatedAt</text>
+  <text x="82" y="1365" class="card-subtitle">Controller: ProductController</text>
+  <text x="82" y="1393" class="body">listProducts, searchProducts, listCategories</text>
+  <text x="82" y="1419" class="body">createProduct, updateProduct, deleteProduct</text>
+  <text x="82" y="1453" class="card-subtitle">DAO</text>
+  <text x="82" y="1481" class="body">ProductDAO: listar, buscar, registrar, modificar, eliminar</text>
+
+  <rect x="745" y="1210" width="610" height="285" class="panel"/>
+  <rect x="745" y="1210" width="610" height="44" class="band-gold"/>
+  <text x="767" y="1239" class="title">Warehouses -> Models.Warehouses</text>
+  <text x="767" y="1277" class="card-subtitle">Campos clave</text>
+  <text x="767" y="1305" class="body">idWarehouse, warehouseName, address, city, country</text>
+  <text x="767" y="1331" class="body">phone, status, createdAt, updatedAt</text>
+  <text x="767" y="1365" class="card-subtitle">Controller: AlmacenesController</text>
+  <text x="767" y="1393" class="body">registrarAlmacen, modificarAlmacen, eliminarLogico</text>
+  <text x="767" y="1419" class="body">restaurarAlmacen, eliminarDefinitivo, listarActivos</text>
+  <text x="767" y="1445" class="body">listarInactivos, buscarAlmacenes</text>
+  <text x="767" y="1479" class="card-subtitle">Repo / DAO</text>
+  <text x="767" y="1507" class="body">save, update, changeStatus, deletePermanent, findByStatus, search</text>
+
+  <rect x="1430" y="1210" width="610" height="285" class="panel"/>
+  <rect x="1430" y="1210" width="610" height="44" class="band-gold"/>
+  <text x="1452" y="1239" class="title">Inventory -> Models.Inventory</text>
+  <text x="1452" y="1277" class="card-subtitle">Campos clave</text>
+  <text x="1452" y="1305" class="body">idInventory, idWarehouse, idProduct, stock</text>
+  <text x="1452" y="1331" class="body">reservedStock, minStock, updatedAt</text>
+  <text x="1452" y="1357" class="body">extras UI: warehouseName, productName, productSku</text>
+  <text x="1452" y="1391" class="card-subtitle">Controller: InventarioController</text>
+  <text x="1452" y="1419" class="body">registrarInventario, modificarInventario, listarActivos</text>
+  <text x="1452" y="1445" class="body">buscarInventario, transferirExistencias</text>
+  <text x="1452" y="1471" class="body">listarAlmacenes, listarProductos</text>
+  <text x="1452" y="1505" class="card-subtitle">Repo / DAO</text>
+  <text x="1452" y="1533" class="body">save, update, search, transferStock</text>
+
+  <rect x="60" y="1535" width="610" height="285" class="panel"/>
+  <rect x="60" y="1535" width="610" height="44" class="band-red"/>
+  <text x="82" y="1564" class="title">Clients -> Models.Client</text>
+  <text x="82" y="1602" class="card-subtitle">Campos clave</text>
+  <text x="82" y="1630" class="body">idClient, name, lastNamePaternal, lastNameMaternal</text>
+  <text x="82" y="1656" class="body">idDocumentType, documentTypeName, documentNumber</text>
+  <text x="82" y="1682" class="body">companyName, phone, email, address, city, country</text>
+  <text x="82" y="1716" class="card-subtitle">Controller: ClientController</text>
+  <text x="82" y="1744" class="body">createClient, updateClient, softDeleteClient, deleteClient</text>
+  <text x="82" y="1770" class="body">restoreClient, findClientById, searchActiveClients</text>
+  <text x="82" y="1796" class="body">searchInactiveClients, listDocumentTypes, listClientOptions</text>
+
+  <rect x="745" y="1535" width="610" height="285" class="panel"/>
+  <rect x="745" y="1535" width="610" height="44" class="band-red"/>
+  <text x="767" y="1564" class="title">Shipments -> Models.Shipment</text>
+  <text x="767" y="1602" class="card-subtitle">Campos clave</text>
+  <text x="767" y="1630" class="body">idShipment, trackingCode, idClient, idWarehouseOrigin</text>
+  <text x="767" y="1656" class="body">idUser, shipmentDate, estimatedDeliveryDate, deliveredAt</text>
+  <text x="767" y="1682" class="body">status, notes, createdAt, updatedAt</text>
+  <text x="767" y="1716" class="card-subtitle">Controller: ShipmentController</text>
+  <text x="767" y="1744" class="body">createShipment, updateShipment, searchShipments</text>
+  <text x="767" y="1770" class="body">findShipmentById, findShipmentByTrackingCode, getShipmentDetail</text>
+  <text x="767" y="1796" class="body">changeShipmentStatus, markShipmentAsDelivered, cancelShipment</text>
+
+  <rect x="1430" y="1535" width="610" height="285" class="panel"/>
+  <rect x="1430" y="1535" width="610" height="44" class="band-red"/>
+  <text x="1452" y="1564" class="title">Boxes -> Models.Box</text>
+  <text x="1452" y="1602" class="card-subtitle">Campos clave</text>
+  <text x="1452" y="1630" class="body">idBox, idShipment, boxCode, imagePath</text>
+  <text x="1452" y="1656" class="body">lengthCm, widthCm, heightCm, weightKg</text>
+  <text x="1452" y="1682" class="body">declaredValue, status, createdAt, updatedAt</text>
+  <text x="1452" y="1716" class="card-subtitle">Controller: BoxController</text>
+  <text x="1452" y="1744" class="body">createBox, updateBox, deleteBox, findBoxById</text>
+  <text x="1452" y="1770" class="body">listBoxes, listBoxesByShipment, listShipmentOptions</text>
+  <text x="1452" y="1804" class="card-subtitle">Persistencia</text>
+  <text x="1452" y="1832" class="body">IBoxRepository / BoxDAO: create, update, delete, findById, list, listByShipment</text>
+
+  <rect x="60" y="1860" width="610" height="285" class="panel"/>
+  <rect x="60" y="1860" width="610" height="44" class="band-slate"/>
+  <text x="82" y="1889" class="title">ShipmentDetails -> Models.ShipmentDetail</text>
+  <text x="82" y="1927" class="card-subtitle">Campos clave</text>
+  <text x="82" y="1955" class="body">idShipmentDetail, idShipment, idBox, idProduct</text>
+  <text x="82" y="1981" class="body">quantity, unitWeightKg, createdAt</text>
+  <text x="82" y="2015" class="card-subtitle">Controller: ShipmentDetailController</text>
+  <text x="82" y="2043" class="body">createDetail, updateDetail, deleteDetail, listDetails</text>
+  <text x="82" y="2069" class="body">listDetailsByShipment, listDetailsByBox</text>
+  <text x="82" y="2095" class="body">listShipmentOptions, listBoxOptions, listBoxOptionsByShipment, listProductOptions</text>
+
+  <rect x="745" y="1860" width="610" height="285" class="panel"/>
+  <rect x="745" y="1860" width="610" height="44" class="band-slate"/>
+  <text x="767" y="1889" class="title">ShipmentTracking -> Models.ShipmentTracking</text>
+  <text x="767" y="1927" class="card-subtitle">Campos clave</text>
+  <text x="767" y="1955" class="body">idTracking, idShipment, idUser, trackingDate</text>
+  <text x="767" y="1981" class="body">location, status, comments</text>
+  <text x="767" y="2015" class="card-subtitle">Controller: ShipmentTrackingController</text>
+  <text x="767" y="2043" class="body">createTracking, updateTracking, deleteTracking</text>
+  <text x="767" y="2069" class="body">listTracking, listTrackingByShipment</text>
+  <text x="767" y="2095" class="body">listShipmentOptions, listUserOptions</text>
+  <text x="767" y="2129" class="card-subtitle">Persistencia</text>
+  <text x="767" y="2157" class="body">IShipmentTrackingRepository / ShipmentTrackingDAO</text>
+
+  <rect x="1430" y="1860" width="610" height="285" class="panel"/>
+  <rect x="1430" y="1860" width="610" height="44" class="band-blue"/>
+  <text x="1452" y="1889" class="title">Notas de analisis</text>
+  <text x="1452" y="1927" class="body">1) DocumentTypes se maneja como dato de referencia, no como clase propia.</text>
+  <text x="1452" y="1961" class="body">2) Shipments y Clients tienen clases internas:</text>
+  <text x="1452" y="1987" class="body">   Filter, PaginatedResult, ReferenceItem; Shipment agrega Detail y Tracking.</text>
+  <text x="1452" y="2021" class="body">3) BoxDAO, ShipmentDetailDAO y ShipmentTrackingDAO implementan interfaces</text>
+  <text x="1452" y="2047" class="body">   directamente; no pasan por una clase Repository intermedia.</text>
+  <text x="1452" y="2081" class="body">4) Inventory incluye campos extra para UI:</text>
+  <text x="1452" y="2107" class="body">   warehouseName, productName y productSku.</text>
+  <text x="1452" y="2141" class="body">5) El SQL compartido tiene Warehouses.image_path, pero el modelo</text>
+  <text x="1452" y="2167" class="body">   Models.Warehouses no expone imagePath ni el controller lo maneja.</text>
+
+  <text x="60" y="2360" class="small">Archivo generado por analisis local del proyecto en C:\Users\crist\Documents\NetBeansProjects\E1\E1</text>
+</svg>

@@ -81,6 +81,18 @@ public class UserController {
         }
     }
 
+    public void logoutUser(int idUser) throws Exception {
+        if (idUser <= 0) {
+            throw new Exception("No se encontro un usuario valido para cerrar sesion.");
+        }
+
+        try {
+            userRepository.logout(idUser);
+        } catch (SQLException e) {
+            throw new Exception(getSqlMessage(e));
+        }
+    }
+
     public List<User> searchUsers(String query, String status) throws Exception {
         try {
             return userRepository.search(query, normalizeStatusFilter(status));
